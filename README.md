@@ -3,37 +3,50 @@
 [![pub package](https://img.shields.io/pub/v/db_exporter.svg)](https://pub.dev/packages/db_exporter)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Export your app's SQLite database to a `.db` backup, CSV, JSON or Excel — and
-get the file out of the sandbox. Works with sqflite, sqlite3 and Drift.
-Android and iOS.
+Let your users export their data. Turn your app's SQLite database into a
+backup file, a spreadsheet, or a share-sheet attachment in one line.
 
-```dart
-final exporter = DbExporter(
-  DbSource(databasePath: db.path, query: db.rawQuery, execute: db.execute),
-);
+## Features
 
-await exporter.exportExcel();
-```
+What you can offer your users:
 
-That's the whole integration. No code generation, and no dependency on your
-database package.
+- 💾 **Back up their data** — a real `.db` file they can keep, and you can
+  restore from later.
+- 📊 **Send their data to a spreadsheet** — Excel or CSV, ready to open.
+- 📤 **Share it anywhere** — WhatsApp, email, Google Drive, Files.
+- 📁 **Save it where they choose** — system file picker, no permissions.
+- 📱 **Move to a new phone** — export, transfer, reopen.
 
-## Install
+Works with **sqflite**, **sqlite3** and **drift**. Android and iOS.
+
+## Getting started
 
 ```sh
 flutter pub add db_exporter
 ```
 
-## Connect your database
-
-There are three wirings. Pick the one matching your package.
+Connect your database once:
 
 ```dart
-// sqflite — also sqflite_common_ffi, sqflite_sqlcipher, floor
+final exporter = DbExporter(
+  DbSource(
+    databasePath: db.path,
+    query: db.rawQuery,
+    execute: db.execute,
+  ),
+);
+```
+
+<details>
+<summary>Using drift or sqlite3 instead?</summary>
+
+```dart
+// drift — also drift_sqflite
 DbSource(
-  databasePath: db.path,
-  query: db.rawQuery,
-  execute: db.execute,
+  databasePath: dbFile.path,
+  query: (sql) async =>
+      (await db.customSelect(sql).get()).map((row) => row.data).toList(),
+  execute: db.customStatement,
 );
 
 // sqlite3 — also sqlite_async and powersync, with getAll() for select()
@@ -43,131 +56,92 @@ DbSource(
       db.select(sql).map<Map<String, Object?>>((r) => {...r}).toList(),
   execute: (sql) async => db.execute(sql),
 );
-
-// drift — also drift_sqflite
-DbSource(
-  databasePath: dbFile.path,
-  query: (sql) async =>
-      (await db.customSelect(sql).get()).map((row) => row.data).toList(),
-  execute: db.customStatement,
-);
 ```
+</details>
 
-`databasePath` is needed only for `.db` exports. `execute` is optional, but
-without it raw backups fall back to a slower, less safe copy.
+## Usage
 
-Not supported: Hive, Isar, ObjectBox, shared_preferences, sembast — they have
-no tables to export.
-
-## Export
-
-Four formats. Every method takes the same arguments.
+### Export a file
 
 ```dart
+await exporter.exportExcel();         // .xlsx  a sheet per table
+await exporter.exportCsv();           // .csv   a file per table
+await exporter.exportJson();          // .json
 await exporter.exportDatabaseFile();  // .db    reopens in your app
-await exporter.exportCsv();           // .csv   one file per table
-await exporter.exportJson();          // .json  one file
-await exporter.exportExcel();         // .xlsx  one sheet per table
-
-await exporter.export(format: userChoice);   // pick at runtime
 ```
+
+Put it on a button:
 
 ```dart
-await exporter.exportExcel(
-  tables: ['orders'],          // default: every table
-  excludeTables: ['cache'],    // default: none
-  maxRowsPerTable: 50000,      // default: unlimited
-  fileName: 'report',          // default: the database filename
-  onProgress: (done, total, table) {},
-);
+ElevatedButton(
+  onPressed: () => exporter.exportExcel(),
+  child: const Text('Export my data'),
+)
 ```
 
-## Where the file goes
+### Choose where it goes
 
 ```dart
 DbExporter(source, destination: const ExportDestination.share());
 ```
 
-| Destination | Result |
+| Destination | What the user sees |
 | --- | --- |
-| `deviceFolder()` | `dbexports-<packageName>` on the device — **default** |
-| `appDirectory()` | Inside the app sandbox |
-| `directory(path)` | A path you name, created if missing |
-| `share()` | The OS share sheet |
-| `saveAs()` | System save dialog |
+| `share()` | The share sheet — pick WhatsApp, email, Drive |
+| `saveAs()` | A file picker — they choose the folder |
+| `deviceFolder()` | Saved to `dbexports-<yourapp>` on the device *(default)* |
+| `appDirectory()` | Nothing — stays inside the app |
 
-Override per call with `exportExcel(destination: ...)`.
+### Export only what you want
 
-> [!IMPORTANT]
-> The default destination writes to the device's main directory, which needs
-> **All files access** on Android 11+:
->
-> ```xml
-> <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
-> ```
->
-> Google Play restricts that permission to file managers and backup apps. If
-> yours isn't one, use `ExportDestination.saveAs()` instead — it reaches the
-> same places through the system picker with no permission at all.
+```dart
+await exporter.exportExcel(
+  tables: ['orders'],          // just these
+  excludeTables: ['cache'],    // everything but these
+  maxRowsPerTable: 50000,
+  fileName: 'my_report',
+);
+```
 
-On iOS there is no device-wide folder, so `deviceFolder()` writes under app
-documents and `saveAs()` opens the share sheet.
-
-## The result
+### Show the outcome
 
 ```dart
 final result = await exporter.exportCsv();
 
-result.files;           // every file produced
-result.totalRows;
-result.deliveredPath;   // null for the share sheet
-result.userCancelled;
+if (result.userCancelled) return;
+showSnackBar('Exported ${result.totalRows} rows');
 ```
 
-Errors throw `DbExportException`, with a message you can show as-is.
+Failures throw `DbExportException`, with a message you can show as-is:
 
 ```dart
 try {
-  await exporter.exportDatabaseFile();
+  await exporter.exportExcel();
 } on DbExportException catch (e) {
-  debugPrint(e.message);
+  showSnackBar(e.message);
 }
 ```
 
-## Good to know
+## Additional information
 
-- **Backups are safe.** `.db` exports use SQLite's `VACUUM INTO`, so the copy
-  is consistent even while your app is writing. A plain `File.copy` loses
-  whatever is still in the WAL.
-- **CSV is injection-safe.** Cells starting with `=`, `+`, `-` or `@` are
-  neutralised so spreadsheets don't execute them. Negative numbers stay numeric.
-- **Memory.** CSV, JSON and Excel build rows in memory — use `maxRowsPerTable`
-  for big tables, or export the `.db`.
-- **BLOBs** become base64 everywhere except the raw `.db`.
-- **Nothing is redacted.** Use `excludeTables` for token and session tables.
-- **SQLCipher exports come out plaintext.** Encrypt them yourself.
-- **Multi-file CSV can't use `saveAs()`** — the dialog takes one file.
+**Backups are safe.** `.db` exports use SQLite's `VACUUM INTO`, so the copy is
+consistent even while your app is writing — a plain `File.copy` loses whatever
+is still in the WAL.
 
-## Settings
+**CSV is injection-safe.** Cells starting with `=`, `+`, `-` or `@` are
+neutralised so spreadsheets don't execute them.
 
-```dart
-DbExporter(
-  source,
-  csv: const CsvExporter(delimiter: ';'),
-  json: const JsonExporter(pretty: false),
-  excel: const ExcelExporter(autoFitColumns: false),
-  rawDatabase: const RawDatabaseExporter(strategy: RawCopyStrategy.fileCopy),
-);
-```
+**Android 11+:** the default `deviceFolder()` destination needs All files
+access, which Google Play only grants file managers and backup apps. Use
+`saveAs()` instead — it reaches the same places with no permission.
 
-## Example
+**Large tables:** Excel, CSV and JSON build rows in memory. Use
+`maxRowsPerTable`, or export the `.db`.
 
-[`example/`](example/) exports three databases side by side — sqflite/Schools,
-sqlite3/Bookstore and drift/Music — with a format and destination picker.
+**Not included:** encryption, redaction, and support for Hive, Isar or
+ObjectBox — those have no tables to export.
 
-```sh
-cd example && flutter run
-```
+See [`example/`](example/) for a runnable app exporting three databases.
 
 ## License
 
