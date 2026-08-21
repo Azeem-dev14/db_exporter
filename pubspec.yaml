@@ -22,7 +22,7 @@ dependencies:
   flutter:
     sdk: flutter
   # Pure Dart. No storage backend is a dependency of this package by design —
-  # adapters take an already-open connection (see SqlSource).
+  # adapters take an already-open connection (see DbSource).
   excel: ^4.0.0
   path: ^1.9.0
   # Platform plumbing for delivery.

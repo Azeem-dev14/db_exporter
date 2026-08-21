@@ -10,7 +10,7 @@ into the user's hands.
 
 ```dart
 final exporter = DbExporter(
-  SqlSource(databasePath: db.path, query: db.rawQuery, execute: db.execute),
+  DbSource(databasePath: db.path, query: db.rawQuery, execute: db.execute),
 );
 
 await exporter.exportExcel(
@@ -59,14 +59,14 @@ dependencies:
 
 ## Connecting your database
 
-`SqlSource` is the whole adapter layer. It takes two callbacks — one that runs
+`DbSource` is the whole adapter layer. It takes two callbacks — one that runs
 a query, one that runs a statement — so any SQLite-backed store fits.
 
 <details open>
 <summary><b>sqflite</b></summary>
 
 ```dart
-final source = SqlSource(
+final source = DbSource(
   databasePath: db.path,
   query: db.rawQuery,
   execute: db.execute,
@@ -78,7 +78,7 @@ final source = SqlSource(
 <summary><b>Drift</b></summary>
 
 ```dart
-final source = SqlSource(
+final source = DbSource(
   databasePath: (await databaseFile()).path,
   query: (sql) async =>
       (await db.customSelect(sql).get()).map((row) => row.data).toList(),
@@ -92,7 +92,7 @@ final source = SqlSource(
 <summary><b>sqlite3 / sqlite3_flutter_libs</b></summary>
 
 ```dart
-final source = SqlSource(
+final source = DbSource(
   databasePath: path,
   query: (sql) async => db.select(sql).map((row) => {...row}).toList(),
   execute: (sql) async => db.execute(sql),

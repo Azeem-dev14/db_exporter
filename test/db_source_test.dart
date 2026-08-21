@@ -68,7 +68,7 @@ void main() {
         tables: ['android_metadata', 'people', 'sqlite_sequence'],
         rows: {'people': people},
       );
-      final source = SqlSource(query: fake.query);
+      final source = DbSource(query: fake.query);
       expect(await source.tableNames(), ['people']);
     });
 
@@ -77,7 +77,7 @@ void main() {
         tables: ['android_metadata', 'people'],
         rows: {'people': people},
       );
-      final source = SqlSource(query: fake.query, includeInternalTables: true);
+      final source = DbSource(query: fake.query, includeInternalTables: true);
       expect(await source.tableNames(), ['android_metadata', 'people']);
     });
   });
@@ -85,7 +85,7 @@ void main() {
   group('readTable', () {
     test('reads every row when unbounded', () async {
       final fake = FakeDatabase(tables: ['people'], rows: {'people': people});
-      final data = await SqlSource(query: fake.query).readTable('people');
+      final data = await DbSource(query: fake.query).readTable('people');
 
       expect(data.name, 'people');
       expect(data.columns, ['id', 'name']);
@@ -95,7 +95,7 @@ void main() {
 
     test('flags truncation and trims to the limit', () async {
       final fake = FakeDatabase(tables: ['people'], rows: {'people': people});
-      final data = await SqlSource(query: fake.query)
+      final data = await DbSource(query: fake.query)
           .readTable('people', maxRows: 2);
 
       expect(data.rowCount, 2);
@@ -104,7 +104,7 @@ void main() {
 
     test('does not flag truncation when the table just fits', () async {
       final fake = FakeDatabase(tables: ['people'], rows: {'people': people});
-      final data = await SqlSource(query: fake.query)
+      final data = await DbSource(query: fake.query)
           .readTable('people', maxRows: 3);
 
       expect(data.rowCount, 3);
@@ -114,7 +114,7 @@ void main() {
     test('rejects an unknown table', () async {
       final fake = FakeDatabase(tables: ['people'], rows: {'people': people});
       await expectLater(
-        SqlSource(query: fake.query).readTable('ghosts'),
+        DbSource(query: fake.query).readTable('ghosts'),
         throwsA(isA<DbExportException>()),
       );
     });
@@ -123,13 +123,13 @@ void main() {
   group('checkpointWal', () {
     test('reports success when SQLite is not busy', () async {
       final fake = FakeDatabase(tables: const [], rows: const {});
-      expect(await SqlSource(query: fake.query).checkpointWal(), isTrue);
+      expect(await DbSource(query: fake.query).checkpointWal(), isTrue);
       expect(fake.executed.single, 'PRAGMA wal_checkpoint(TRUNCATE)');
     });
 
     test('reports failure when readers blocked the checkpoint', () async {
       final fake = FakeDatabase(tables: const [], rows: const {}, walBusy: 1);
-      expect(await SqlSource(query: fake.query).checkpointWal(), isFalse);
+      expect(await DbSource(query: fake.query).checkpointWal(), isFalse);
     });
 
     test('swallows errors rather than aborting the export', () async {
@@ -138,13 +138,13 @@ void main() {
         rows: const {},
         failCheckpoint: true,
       );
-      expect(await SqlSource(query: fake.query).checkpointWal(), isFalse);
+      expect(await DbSource(query: fake.query).checkpointWal(), isFalse);
     });
   });
 
   group('identifier quoting', () {
     test('escapes embedded double quotes', () {
-      expect(SqlSource.quoteIdentifier('we"ird'), '"we""ird"');
+      expect(DbSource.quoteIdentifier('we"ird'), '"we""ird"');
     });
 
     test('is applied to table reads', () async {
@@ -152,7 +152,7 @@ void main() {
         tables: ['order'],
         rows: {'order': [{'id': 1}]},
       );
-      await SqlSource(query: fake.query).readTable('order');
+      await DbSource(query: fake.query).readTable('order');
       expect(fake.executed, contains('SELECT * FROM "order"'));
     });
   });
@@ -161,7 +161,7 @@ void main() {
     test('prefers the execute callback when provided', () async {
       final fake = FakeDatabase(tables: const [], rows: const {});
       final executed = <String>[];
-      final source = SqlSource(
+      final source = DbSource(
         query: fake.query,
         execute: (sql) async => executed.add(sql),
       );
@@ -173,7 +173,7 @@ void main() {
 
     test('falls back to the query callback', () async {
       final fake = FakeDatabase(tables: const [], rows: const {});
-      await SqlSource(query: fake.query).run('VACUUM');
+      await DbSource(query: fake.query).run('VACUUM');
       expect(fake.executed, ['VACUUM']);
     });
   });

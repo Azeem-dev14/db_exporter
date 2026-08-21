@@ -13,7 +13,7 @@ import 'model/export_exception.dart';
 import 'model/export_format.dart';
 import 'model/export_result.dart';
 import 'model/table_data.dart';
-import 'source/sql_source.dart';
+import 'source/db_source.dart';
 import 'util/file_naming.dart';
 
 /// Progress callback, emitted once per table plus once when writing finishes.
@@ -23,7 +23,7 @@ typedef ExportProgress = void Function(int completed, int total, String? table);
 ///
 /// ```dart
 /// final exporter = DbExporter(
-///   SqlSource(databasePath: db.path, query: db.rawQuery),
+///   DbSource(databasePath: db.path, query: db.rawQuery),
 /// );
 ///
 /// final result = await exporter.exportExcel(
@@ -36,7 +36,7 @@ class DbExporter {
     this.defaultBaseName,
   });
 
-  final SqlSource source;
+  final DbSource source;
 
   /// Base filename for exports; defaults to the database filename, then to
   /// `export`.

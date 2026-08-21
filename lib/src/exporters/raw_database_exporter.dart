@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import '../model/export_exception.dart';
 import '../model/export_format.dart';
 import '../model/export_result.dart';
-import '../source/sql_source.dart';
+import '../source/db_source.dart';
 import '../util/file_naming.dart';
 
 /// How to obtain a consistent copy of a live SQLite file.
@@ -18,7 +18,7 @@ enum RawCopyStrategy {
   /// back up an open database, and it is what almost every hand-rolled
   /// `File.copy` backup gets wrong.
   ///
-  /// Requires `SqlSource.execute`; without it, and on SQLite builds older than
+  /// Requires `DbSource.execute`; without it, and on SQLite builds older than
   /// 3.27, this silently falls back to [fileCopy].
   vacuumInto,
 
@@ -50,15 +50,15 @@ class RawDatabaseExporter {
   ExportFormat get format => ExportFormat.rawDatabase;
 
   Future<List<ExportedFile>> write({
-    required SqlSource source,
+    required DbSource source,
     required Directory stagingDirectory,
     required String baseName,
   }) async {
     final sourcePath = source.databasePath;
     if (sourcePath == null) {
       throw const DbExportException(
-        'ExportFormat.rawDatabase needs SqlSource.databasePath. '
-        'Pass the path of the .db file when constructing SqlSource.',
+        'ExportFormat.rawDatabase needs DbSource.databasePath. '
+        'Pass the path of the .db file when constructing DbSource.',
       );
     }
     if (!await File(sourcePath).exists()) {
@@ -98,7 +98,7 @@ class RawDatabaseExporter {
   }
 
   /// Returns false (rather than throwing) so the caller can fall back.
-  Future<bool> _vacuumInto(SqlSource source, String targetPath) async {
+  Future<bool> _vacuumInto(DbSource source, String targetPath) async {
     // VACUUM INTO refuses to overwrite, and cannot run inside a transaction.
     final target = File(targetPath);
     if (await target.exists()) await target.delete();
@@ -111,7 +111,7 @@ class RawDatabaseExporter {
   }
 
   Future<bool> _copyBytes(
-    SqlSource source,
+    DbSource source,
     String sourcePath,
     String targetPath,
   ) async {

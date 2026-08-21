@@ -76,7 +76,7 @@ class _ExportDemoPageState extends State<ExportDemoPage> {
 
   /// The only db_exporter-specific wiring an app needs.
   DbExporter get _exporter => DbExporter(
-        SqlSource(
+        DbSource(
           databasePath: _database!.path,
           query: _database!.rawQuery,
           execute: _database!.execute,

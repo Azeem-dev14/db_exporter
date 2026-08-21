@@ -4,7 +4,7 @@ Initial release.
 
 ### Added
 
-- `SqlSource` — adapts any SQLite-backed store (Drift, sqflite, `sqlite3`) via
+- `DbSource` — adapts any SQLite-backed store (Drift, sqflite, `sqlite3`) via
   two callbacks, so the package depends on no database library itself.
 - `DbExporter` with `exportDatabaseFile()`, `exportCsv()`, `exportJson()` and
   `exportExcel()`, plus a general `export()` for full control.

@@ -3,7 +3,7 @@ enum ExportFormat {
   /// A byte-for-byte copy of the SQLite file itself.
   ///
   /// This is the only format that round-trips: the result can be handed back to
-  /// Drift/sqflite as-is. Requires `SqlSource.databasePath` to be known.
+  /// Drift/sqflite as-is. Requires `DbSource.databasePath` to be known.
   rawDatabase,
 
   /// One `.csv` file per table, RFC 4180 quoted, UTF-8 with BOM.

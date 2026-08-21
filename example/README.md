@@ -10,11 +10,11 @@ four ways:
 | Share CSV per table | `csv` | share sheet |
 | Write JSON | `json` | app documents directory |
 
-The only db_exporter-specific code is the `SqlSource` in `_ExportDemoPageState`:
+The only db_exporter-specific code is the `DbSource` in `_ExportDemoPageState`:
 
 ```dart
 DbExporter(
-  SqlSource(
+  DbSource(
     databasePath: db.path,
     query: db.rawQuery,
     execute: db.execute,

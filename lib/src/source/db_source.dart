@@ -27,22 +27,22 @@ const _internalTables = <String>{
 ///
 /// ```dart
 /// // sqflite
-/// SqlSource(
+/// DbSource(
 ///   databasePath: db.path,
 ///   query: db.rawQuery,
 ///   execute: db.execute,
 /// );
 ///
 /// // drift
-/// SqlSource(
+/// DbSource(
 ///   databasePath: file.path,
 ///   query: (sql) async =>
 ///       (await db.customSelect(sql).get()).map((row) => row.data).toList(),
 ///   execute: db.customStatement,
 /// );
 /// ```
-class SqlSource {
-  SqlSource({
+class DbSource {
+  DbSource({
     required this.query,
     this.execute,
     this.databasePath,
