@@ -1,8 +1,10 @@
 import 'package:db_exporter/db_exporter.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
+
+import 'databases/drift_music.dart';
+import 'databases/sqflite_schools.dart';
+import 'databases/sqlite3_bookstore.dart';
+import 'demo_database.dart';
 
 void main() => runApp(const ExampleApp());
 
@@ -13,6 +15,10 @@ class ExampleApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
         title: 'db_exporter',
         theme: ThemeData(colorSchemeSeed: Colors.indigo),
+        darkTheme: ThemeData(
+          colorSchemeSeed: Colors.indigo,
+          brightness: Brightness.dark,
+        ),
         home: const ExportDemoPage(),
       );
 }
@@ -25,161 +31,330 @@ class ExportDemoPage extends StatefulWidget {
 }
 
 class _ExportDemoPageState extends State<ExportDemoPage> {
-  Database? _database;
-  String _status = 'Seeding demo database…';
-  bool _busy = false;
+  /// Every supported wiring style, each with a distinct dataset so the
+  /// exported file makes it obvious which database produced it.
+  final List<DemoDatabase> _databases = [
+    SqfliteSchools(),
+    DriftMusic(),
+    Sqlite3Bookstore(),
+  ];
 
-  @override
-  void initState() {
-    super.initState();
-    _seed();
-  }
+  late DemoDatabase _database = _databases.first;
+  ExportFormat _format = ExportFormat.excel;
+  _Destination _destination = _Destination.deviceFolder;
+
+  bool _busy = false;
+  String? _error;
+  ExportResult? _result;
 
   @override
   void dispose() {
-    _database?.close();
+    for (final database in _databases) {
+      database.close();
+    }
     super.dispose();
   }
 
-  Future<void> _seed() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final database = await openDatabase(
-      p.join(directory.path, 'demo.db'),
-      version: 1,
-      onCreate: (db, _) async {
-        await db.execute(
-          'CREATE TABLE people (id INTEGER PRIMARY KEY, name TEXT, '
-          'score REAL)',
-        );
-        await db.execute(
-          'CREATE TABLE projects (id INTEGER PRIMARY KEY, title TEXT)',
-        );
-        for (final person in const [
-          ['Ada Lovelace', 99.5],
-          ['Grace Hopper', 98.0],
-          ['Katherine Johnson', 97.5],
-        ]) {
-          await db.insert('people', {
-            'name': person[0],
-            'score': person[1],
-          });
-        }
-        await db.insert('projects', {'title': 'Analytical Engine'});
-      },
-    );
-
-    setState(() {
-      _database = database;
-      _status = 'Ready. Pick a format.';
-    });
-  }
-
-  /// The only db_exporter-specific wiring an app needs.
-  DbExporter _exporterTo(ExportDestination destination) => DbExporter(
-        DbSource(
-          databasePath: _database!.path,
-          query: _database!.rawQuery,
-          execute: _database!.execute,
-        ),
-        destination: destination,
-      );
-
-  Future<void> _run(
-    String label,
-    ExportDestination destination,
-    Future<ExportResult> Function(DbExporter exporter) action,
-  ) async {
+  Future<void> _export() async {
     setState(() {
       _busy = true;
-      _status = '$label…';
+      _error = null;
+      _result = null;
     });
+
     try {
-      final result = await action(_exporterTo(destination));
-      setState(() {
-        _status = result.userCancelled
-            ? '$label cancelled.'
-            : '$label → ${result.files.length} file(s), '
-                '${result.totalRows} rows in '
-                '${result.duration.inMilliseconds}ms\n'
-                '${result.deliveredPath ?? result.files.first.path}';
-      });
+      await _database.open();
+
+      final exporter = DbExporter(
+        _database.source,
+        destination: _destination.build(),
+      );
+
+      final result = await exporter.export(
+        format: _format,
+        onProgress: (done, total, table) =>
+            debugPrint('[${_database.package}] $done/$total  ${table ?? ''}'),
+      );
+      setState(() => _result = result);
     } on DbExportException catch (error) {
-      setState(() => _status = 'Failed: ${error.message}');
+      setState(() => _error = error.message);
+    } on Object catch (error) {
+      setState(() => _error = '$error');
     } finally {
-      setState(() => _busy = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
+  /// CSV writes one file per table, which the save dialog cannot accept.
+  bool get _combinationValid =>
+      !(_format.isMultiFile && _destination == _Destination.saveAs);
+
   @override
   Widget build(BuildContext context) {
-    final ready = _database != null && !_busy;
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('db_exporter')),
-      body: Padding(
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('Database', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          _DatabasePicker(
+            databases: _databases,
+            selected: _database,
+            onChanged: _busy
+                ? null
+                : (database) => setState(() {
+                      _database = database;
+                      _result = null;
+                      _error = null;
+                    }),
+          ),
+          const SizedBox(height: 24),
+
+          Text('Export format', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<ExportFormat>(
+            initialValue: _format,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+            items: [
+              for (final format in ExportFormat.values)
+                DropdownMenuItem(
+                  value: format,
+                  child: Text('${_formatLabel(format)}  '
+                      '(.${format.fileExtension})'),
+                ),
+            ],
+            onChanged: _busy
+                ? null
+                : (format) => setState(() => _format = format!),
+          ),
+          const SizedBox(height: 16),
+
+          Text('Destination', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<_Destination>(
+            initialValue: _destination,
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+            items: [
+              for (final destination in _Destination.values)
+                DropdownMenuItem(
+                  value: destination,
+                  child: Text(destination.label),
+                ),
+            ],
+            onChanged: _busy
+                ? null
+                : (destination) =>
+                    setState(() => _destination = destination!),
+          ),
+
+          if (!_combinationValid) ...[
+            const SizedBox(height: 12),
+            _Banner(
+              icon: Icons.info_outline,
+              color: theme.colorScheme.tertiary,
+              text: 'CSV writes one file per table, and the save dialog takes '
+                  'only one file. Pick Share or a folder destination.',
+            ),
+          ],
+
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: _busy || !_combinationValid ? null : _export,
+            icon: _busy
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download),
+            label: Text(_busy ? 'Exporting…' : 'Export'),
+          ),
+
+          if (_error != null) ...[
+            const SizedBox(height: 24),
+            _Banner(
+              icon: Icons.error_outline,
+              color: theme.colorScheme.error,
+              text: _error!,
+            ),
+          ],
+          if (_result != null) ...[
+            const SizedBox(height: 24),
+            _ResultCard(result: _result!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _formatLabel(ExportFormat format) => switch (format) {
+        ExportFormat.rawDatabase => 'Raw database file',
+        ExportFormat.csv => 'CSV, one file per table',
+        ExportFormat.json => 'JSON',
+        ExportFormat.excel => 'Excel workbook',
+      };
+}
+
+/// Destinations the demo offers, kept as an enum so the dropdown is trivial.
+enum _Destination {
+  deviceFolder('Device folder (dbexports-<package>)'),
+  appDirectory('App documents directory'),
+  share('Share sheet'),
+  saveAs('System save dialog');
+
+  const _Destination(this.label);
+
+  final String label;
+
+  ExportDestination build() => switch (this) {
+        _Destination.deviceFolder => const ExportDestination.deviceFolder(),
+        _Destination.appDirectory => const ExportDestination.appDirectory(),
+        _Destination.share =>
+          const ExportDestination.share(subject: 'db_exporter demo'),
+        _Destination.saveAs =>
+          const ExportDestination.saveAs(dialogTitle: 'Save export'),
+      };
+}
+
+class _DatabasePicker extends StatelessWidget {
+  const _DatabasePicker({
+    required this.databases,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<DemoDatabase> databases;
+  final DemoDatabase selected;
+  final ValueChanged<DemoDatabase>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card.outlined(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (final database in databases)
+            ListTile(
+              onTap: onChanged == null ? null : () => onChanged!(database),
+              selected: database == selected,
+              leading: Icon(
+                database == selected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+              ),
+              title: Text(database.label),
+              subtitle: Text(
+                '${database.tables.join(', ')}\n${database.wiring}',
+                style: theme.textTheme.bodySmall,
+              ),
+              isThreeLine: true,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultCard extends StatelessWidget {
+  const _ResultCard({required this.result});
+
+  final ExportResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (result.userCancelled) {
+      return _Banner(
+        icon: Icons.cancel_outlined,
+        color: theme.colorScheme.outline,
+        text: 'Cancelled before the file was saved.',
+      );
+    }
+
+    return Card.filled(
+      child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(_status),
+            Text('Exported', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 12),
+            _Row('Format', result.format.name),
+            _Row('Tables', result.tables.isEmpty
+                ? 'whole file'
+                : result.tables.join(', ')),
+            _Row('Rows', '${result.totalRows}'),
+            _Row('Size', '${result.totalSizeInBytes} bytes'),
+            _Row('Took', '${result.duration.inMilliseconds} ms'),
+            const SizedBox(height: 12),
+            Text('Files', style: theme.textTheme.labelLarge),
+            const SizedBox(height: 4),
+            for (final file in result.files)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: SelectableText(
+                  file.path,
+                  style: theme.textTheme.bodySmall,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: ready
-                  ? () => _run(
-                        'Backup .db',
-                        const ExportDestination.share(
-                          subject: 'Database backup',
-                        ),
-                        (exporter) => exporter.exportDatabaseFile(),
-                      )
-                  : null,
-              child: const Text('Share raw .db backup'),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.tonal(
-              onPressed: ready
-                  ? () => _run(
-                        'Excel export',
-                        const ExportDestination.saveAs(
-                          dialogTitle: 'Save workbook',
-                        ),
-                        (exporter) => exporter.exportExcel(),
-                      )
-                  : null,
-              child: const Text('Save .xlsx via system dialog'),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.tonal(
-              onPressed: ready
-                  ? () => _run(
-                        'CSV export',
-                        const ExportDestination.share(),
-                        (exporter) => exporter.exportCsv(),
-                      )
-                  : null,
-              child: const Text('Share one CSV per table'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: ready
-                  ? () => _run(
-                        'JSON export',
-                        // The default: dbexports-<packageName> in the
-                        // device's main directory. Needs All files access
-                        // on Android 11+.
-                        const ExportDestination.deviceFolder(),
-                        (exporter) => exporter.exportJson(),
-                      )
-                  : null,
-              child: const Text('Write JSON to device folder'),
-            ),
           ],
         ),
       ),
     );
   }
+}
+
+class _Row extends StatelessWidget {
+  const _Row(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 72, child: Text(label)),
+            Expanded(
+              child: Text(
+                value,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _Banner extends StatelessWidget {
+  const _Banner({
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: color),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: SelectableText(text)),
+          ],
+        ),
+      );
 }

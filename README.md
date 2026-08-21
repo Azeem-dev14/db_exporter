@@ -56,13 +56,36 @@ dependencies:
   db_exporter: ^0.1.0
 ```
 
-## Connecting your database
+## Supported databases
 
-`DbSource` is the whole adapter layer. It takes two callbacks — one that runs
-a query, one that runs a statement — so any SQLite-backed store fits.
+Anything backed by a real SQLite file. `db_exporter` never imports your
+database package — `DbSource` takes two callbacks, so nothing is special-cased
+and packages not listed here work as long as they can run SQL.
+
+| Package | Supported | Wiring |
+| --- | :-: | --- |
+| [`sqflite`](https://pub.dev/packages/sqflite) | ✅ | `query: db.rawQuery, execute: db.execute` |
+| [`sqflite_common_ffi`](https://pub.dev/packages/sqflite_common_ffi) | ✅ | same as sqflite |
+| [`sqflite_sqlcipher`](https://pub.dev/packages/sqflite_sqlcipher) | ⚠️ | same as sqflite — **exports are plaintext** |
+| [`drift`](https://pub.dev/packages/drift) | ✅ | `customSelect` + `customStatement` |
+| [`drift_sqflite`](https://pub.dev/packages/drift_sqflite) | ✅ | same as drift |
+| [`floor`](https://pub.dev/packages/floor) | ✅ | `db.database.rawQuery` / `.execute` |
+| [`sqlite3`](https://pub.dev/packages/sqlite3) | ✅ | `db.select` + `db.execute` |
+| [`sqlite_async`](https://pub.dev/packages/sqlite_async) | ✅ | `db.getAll` + `db.execute` |
+| [`powersync`](https://pub.dev/packages/powersync) | ✅ | same as sqlite_async |
+| [`sembast_sqflite`](https://pub.dev/packages/sembast_sqflite) | ⚠️ | runs, but sembast stores JSON blobs in one table — you get serialized records, not your fields |
+| [`hive`](https://pub.dev/packages/hive) / `hive_ce` | ❌ | key-value boxes, no tables |
+| [`isar`](https://pub.dev/packages/isar) | ❌ | NoSQL collections |
+| [`objectbox`](https://pub.dev/packages/objectbox) | ❌ | NoSQL, own file format |
+| [`shared_preferences`](https://pub.dev/packages/shared_preferences) | ❌ | flat key-value |
+| [`sembast`](https://pub.dev/packages/sembast) / `get_storage` | ❌ | document / JSON stores |
+
+Adapters for the ❌ rows are on the roadmap.
+
+### Wiring each one
 
 <details open>
-<summary><b>sqflite</b></summary>
+<summary><b>sqflite</b> — also sqflite_common_ffi, sqflite_sqlcipher, drift_sqflite</summary>
 
 ```dart
 final source = DbSource(
@@ -74,11 +97,11 @@ final source = DbSource(
 </details>
 
 <details>
-<summary><b>Drift</b></summary>
+<summary><b>drift</b></summary>
 
 ```dart
 final source = DbSource(
-  databasePath: (await databaseFile()).path,
+  databasePath: dbFile.path,   // only needed for raw .db exports
   query: (sql) async =>
       (await db.customSelect(sql).get()).map((row) => row.data).toList(),
   // Required: customSelect rejects VACUUM, so raw backups need this.
@@ -93,8 +116,34 @@ final source = DbSource(
 ```dart
 final source = DbSource(
   databasePath: path,
-  query: (sql) async => db.select(sql).map((row) => {...row}).toList(),
+  query: (sql) async =>
+      db.select(sql).map<Map<String, Object?>>((r) => {...r}).toList(),
   execute: (sql) async => db.execute(sql),
+);
+```
+</details>
+
+<details>
+<summary><b>sqlite_async / powersync</b></summary>
+
+```dart
+final source = DbSource(
+  databasePath: path,
+  query: (sql) async =>
+      (await db.getAll(sql)).map<Map<String, Object?>>((r) => {...r}).toList(),
+  execute: (sql) async => db.execute(sql),
+);
+```
+</details>
+
+<details>
+<summary><b>floor</b></summary>
+
+```dart
+final source = DbSource(
+  databasePath: path,          // where you called $FloorAppDatabase…build()
+  query: db.database.rawQuery,
+  execute: db.database.execute,
 );
 ```
 </details>
@@ -103,37 +152,48 @@ final source = DbSource(
 but without it `VACUUM INTO` is unavailable and raw exports quietly fall back
 to checkpoint-and-copy.
 
-## Formats
+## Export formats
 
-| Format | Files out | Round-trips? | Good for |
-| --- | --- | --- | --- |
-| `exportDatabaseFile()` | one `.db` | **Yes** — reopen it with Drift/sqflite | backups, support bundles, device migration |
-| `exportCsv()` | one `.csv` **per table** | No | spreadsheets, analysts, one-off inspection |
-| `exportJson()` | one `.json` | No | uploads, APIs, debugging |
-| `exportExcel()` | one `.xlsx`, a sheet per table | No | handing data to a non-developer |
+| Method | `ExportFormat` | Files out | Round-trips? | Best for |
+| --- | --- | --- | :-: | --- |
+| `exportDatabaseFile()` | `.rawDatabase` | one `.db` | **Yes** | backups, support bundles, device migration |
+| `exportCsv()` | `.csv` | one **per table** | No | spreadsheets, analysts, quick inspection |
+| `exportJson()` | `.json` | one file | No | uploads, APIs, debugging |
+| `exportExcel()` | `.excel` | one `.xlsx`, a sheet per table | No | handing data to a non-developer |
 
-```dart
-// Everything.
-final result = await exporter.exportJson();
-
-// Two tables only, capped, with progress.
-await exporter.exportCsv(
-  tables: ['orders', 'customers'],
-  maxRowsPerTable: 50000,
-  onProgress: (done, total, table) => print('$done/$total  $table'),
-);
-
-// Everything except the noisy ones.
-await exporter.exportExcel(excludeTables: ['cache', 'sync_log']);
-```
-
-Every export method takes the **same** arguments — `tables`, `excludeTables`,
-`fileName`, `maxRowsPerTable`, `destination`, `onProgress` — so the format can
-be chosen at runtime:
+Every method takes the **same** six arguments, so the format can be chosen at
+runtime:
 
 ```dart
-await exporter.export(format: userChoice);   // ExportFormat.csv, .excel, …
+tables:           List<String>?        // default: every user table
+excludeTables:    List<String>?        // default: none
+fileName:         String?              // default: the database filename
+maxRowsPerTable:  int?                 // default: unlimited
+destination:      ExportDestination?   // default: the constructor's
+onProgress:       ExportProgress?
 ```
+
+```dart
+await exporter.exportExcel();
+await exporter.exportCsv(tables: ['orders', 'customers']);
+await exporter.export(format: userChoice);   // runtime pick
+```
+
+`ExportFormat` carries what you need to drive a UI: `name`, `fileExtension`,
+`mimeType` and `isMultiFile` — use the last one to stop a CSV export being sent
+to the single-file save dialog.
+
+### How values are converted
+
+| SQLite type | `.db` | CSV | JSON | Excel |
+| --- | --- | --- | --- | --- |
+| `INTEGER` | as-is | text | number | numeric cell |
+| `REAL` | as-is | text | number | numeric cell |
+| `TEXT` | as-is | quoted per RFC 4180 | string | text cell |
+| `BLOB` | as-is | base64 | base64 | base64 text |
+| `NULL` | as-is | empty field | `null` | empty cell |
+
+Only the raw `.db` keeps BLOBs as bytes.
 
 ## Destinations
 

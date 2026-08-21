@@ -1,5 +1,5 @@
 name: db_exporter_example
-description: Demonstrates exporting a sqflite database with db_exporter.
+description: Exports three different local databases with db_exporter.
 publish_to: none
 version: 1.0.0
 
@@ -11,7 +11,13 @@ dependencies:
     sdk: flutter
   db_exporter:
     path: ../
+
+  # One demo per storage package, each with its own dataset.
   sqflite: ^2.3.3
+  drift: ^2.20.0
+  sqlite3: ^2.4.0
+  sqlite3_flutter_libs: ^0.5.24
+
   path: ^1.9.0
   path_provider: ^2.1.4
 
