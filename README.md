@@ -62,27 +62,29 @@ Anything backed by a real SQLite file. `db_exporter` never imports your
 database package — `DbSource` takes two callbacks, so nothing is special-cased
 and packages not listed here work as long as they can run SQL.
 
-| Package | Supported | Wiring |
-| --- | :-: | --- |
-| [`sqflite`](https://pub.dev/packages/sqflite) | ✅ | `query: db.rawQuery, execute: db.execute` |
-| [`sqflite_common_ffi`](https://pub.dev/packages/sqflite_common_ffi) | ✅ | same as sqflite |
-| [`sqflite_sqlcipher`](https://pub.dev/packages/sqflite_sqlcipher) | ⚠️ | same as sqflite — **exports are plaintext** |
-| [`drift`](https://pub.dev/packages/drift) | ✅ | `customSelect` + `customStatement` |
-| [`drift_sqflite`](https://pub.dev/packages/drift_sqflite) | ✅ | same as drift |
-| [`floor`](https://pub.dev/packages/floor) | ✅ | `db.database.rawQuery` / `.execute` |
-| [`sqlite3`](https://pub.dev/packages/sqlite3) | ✅ | `db.select` + `db.execute` |
-| [`sqlite_async`](https://pub.dev/packages/sqlite_async) | ✅ | `db.getAll` + `db.execute` |
-| [`powersync`](https://pub.dev/packages/powersync) | ✅ | same as sqlite_async |
-| [`sembast_sqflite`](https://pub.dev/packages/sembast_sqflite) | ⚠️ | runs, but sembast stores JSON blobs in one table — you get serialized records, not your fields |
-| [`hive`](https://pub.dev/packages/hive) / `hive_ce` | ❌ | key-value boxes, no tables |
-| [`isar`](https://pub.dev/packages/isar) | ❌ | NoSQL collections |
-| [`objectbox`](https://pub.dev/packages/objectbox) | ❌ | NoSQL, own file format |
-| [`shared_preferences`](https://pub.dev/packages/shared_preferences) | ❌ | flat key-value |
-| [`sembast`](https://pub.dev/packages/sembast) / `get_storage` | ❌ | document / JSON stores |
+| Package | Downloads/30d | Supported | Wiring |
+| --- | ---: | :-: | --- |
+| [`sqflite`](https://pub.dev/packages/sqflite) | 2.75M | ✅ | `query: db.rawQuery, execute: db.execute` |
+| [`sqlite3`](https://pub.dev/packages/sqlite3) | 2.22M | ✅ | `db.select` + `db.execute` |
+| [`drift`](https://pub.dev/packages/drift) | 1.14M | ✅ | `customSelect` + `customStatement` |
+| [`sqlite_async`](https://pub.dev/packages/sqlite_async) | 418k | ✅ | `db.getAll` + `db.execute` |
+| [`sqflite_common_ffi`](https://pub.dev/packages/sqflite_common_ffi) | 246k | ✅ | same as sqflite |
+| [`sqflite_sqlcipher`](https://pub.dev/packages/sqflite_sqlcipher) | 72k | ⚠️ | same as sqflite — **exports are plaintext** |
+| [`powersync`](https://pub.dev/packages/powersync) | 31k | ✅ | same as sqlite_async |
+| [`floor`](https://pub.dev/packages/floor) | 22k | ✅ | `db.database.rawQuery` / `.execute` |
+| [`drift_sqflite`](https://pub.dev/packages/drift_sqflite) | 13k | ✅ | same as drift |
+| [`sembast_sqflite`](https://pub.dev/packages/sembast_sqflite) | 4k | ⚠️ | runs, but sembast stores JSON blobs in one table — you get serialized records, not your fields |
+| [`hive`](https://pub.dev/packages/hive) / `hive_ce` | — | ❌ | key-value boxes, no tables |
+| [`isar`](https://pub.dev/packages/isar) | — | ❌ | NoSQL collections |
+| [`objectbox`](https://pub.dev/packages/objectbox) | — | ❌ | NoSQL, own file format |
+| [`shared_preferences`](https://pub.dev/packages/shared_preferences) | — | ❌ | flat key-value |
+| [`sembast`](https://pub.dev/packages/sembast) / `get_storage` | — | ❌ | document / JSON stores |
+
+Download figures are pub.dev's 30-day counts as of August 2026.
 
 Adapters for the ❌ rows are on the roadmap.
 
-The [example app](example/) runs seven of these side by side — one dataset per
+The [example app](example/) runs the top five side by side — one dataset per
 package, so an export makes it obvious which wiring produced it.
 
 ### Wiring each one

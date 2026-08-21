@@ -1,27 +1,30 @@
 import '../demo_database.dart';
 import 'drift_music.dart';
-import 'drift_sqflite_recipes.dart';
-import 'sembast_notes.dart';
 import 'sqflite_ffi_airports.dart';
 import 'sqflite_schools.dart';
 import 'sqlite3_bookstore.dart';
 import 'sqlite_async_weather.dart';
 
-/// Every storage package the example demonstrates, each with its own dataset.
+/// The five most-used SQL packages in the Flutter ecosystem, each with its own
+/// dataset. Monthly downloads on pub.dev as of August 2026:
 ///
-/// Two supported packages are deliberately absent:
+/// | Package              | Downloads/30d |
+/// | -------------------- | ------------- |
+/// | `sqflite`            | 2.75M         |
+/// | `sqlite3`            | 2.22M         |
+/// | `drift`              | 1.14M         |
+/// | `sqlite_async`       | 418k          |
+/// | `sqflite_common_ffi` | 246k          |
 ///
-/// - **floor** needs `build_runner` to generate its database class, which the
-///   example avoids. Its wiring is `db.database.rawQuery` / `.execute`.
-/// - **sqflite_sqlcipher** ships its own native SQLite, which clashes with the
-///   plain `sqflite` plugin when both are in one app. Its wiring is identical
-///   to sqflite — and note that exports come out **plaintext**.
+/// Other supported packages are documented in the README but left out here:
+/// `drift_sqflite` and `floor` are declining, `powersync` is `sqlite_async`
+/// underneath, `sembast_sqflite` stores JSON blobs rather than columns, and
+/// `sqflite_sqlcipher` bundles a native SQLite that clashes with the `sqflite`
+/// plugin inside one app.
 List<DemoDatabase> buildDemoDatabases() => [
       SqfliteSchools(),
-      SqfliteFfiAirports(),
-      DriftMusic(),
-      DriftSqfliteRecipes(),
       Sqlite3Bookstore(),
+      DriftMusic(),
       SqliteAsyncWeather(),
-      SembastNotes(),
+      SqfliteFfiAirports(),
     ];
