@@ -1,6 +1,6 @@
 # db_exporter example
 
-One screen that exports the **five most-used SQL packages** in the Flutter
+One screen that exports the **three most-used SQL packages** in the Flutter
 ecosystem, each holding a different dataset — so the file you open afterwards
 makes it obvious which one produced it.
 
@@ -9,11 +9,19 @@ makes it obvious which one produced it.
 | Schools | `sqflite` | 2.75M | `schools`, `teachers` | `rawQuery` + `execute` |
 | Bookstore | `sqlite3` | 2.22M | `books`, `orders` | `select()` + `execute` |
 | Music | `drift` | 1.14M | `artists`, `albums`, `tracks` | `customSelect().get()` + `customStatement` |
-| Weather | `sqlite_async` | 418k | `stations`, `readings` | `getAll()` + `execute` |
-| Airports | `sqflite_common_ffi` | 246k | `airports`, `flights` | same as sqflite |
 
-Pick a database, pick a format, pick a destination, hit **Export**. The result
-card shows the row count, file size, elapsed time and the final path.
+Between them these are the only three wiring styles that exist. Every other
+supported package matches one of them:
+
+| Package | Wires like |
+| --- | --- |
+| `sqflite_common_ffi`, `sqflite_sqlcipher`, `floor` | sqflite |
+| `drift_sqflite` | drift |
+| `sqlite_async`, `powersync` | sqlite3, with `getAll` for `select` |
+
+Pick a database, pick one of the four formats, pick a destination, hit
+**Export**. The result card shows the row count, file size, elapsed time and
+the final path.
 
 ## Running it
 
@@ -21,19 +29,6 @@ card shows the row count, file size, elapsed time and the final path.
 cd example
 flutter run
 ```
-
-## Supported but not demonstrated
-
-These work — the README's support matrix has their wiring — but they earn no
-slot here:
-
-| Package | Why not | Wiring |
-| --- | --- | --- |
-| `powersync` | built on `sqlite_async`, identical wiring | see Weather |
-| `drift_sqflite` | 13k downloads, a migration path | see Music |
-| `floor` | 22k downloads and needs `build_runner` | `db.database.rawQuery` / `.execute` |
-| `sqflite_sqlcipher` | bundles a native SQLite that clashes with the `sqflite` plugin in one app | same as sqflite — exports are **plaintext** |
-| `sembast_sqflite` | stores JSON blobs in one table, so you get `key`/`value` rows, not columns | read the file with sqflite |
 
 ## Notes
 

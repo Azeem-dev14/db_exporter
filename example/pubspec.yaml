@@ -1,5 +1,5 @@
 name: db_exporter_example
-description: Exports the five most-used Flutter SQL databases with db_exporter.
+description: Exports the three most-used Flutter SQL databases with db_exporter.
 publish_to: none
 version: 1.0.0
 
@@ -12,13 +12,11 @@ dependencies:
   db_exporter:
     path: ../
 
-  # The five most-used SQL packages, one dataset each.
+  # The three most-used SQL packages, one dataset each.
   sqflite: ^2.3.3                 # Schools
   sqlite3: ^2.4.0                 # Bookstore
   drift: ^2.20.0                  # Music
-  sqlite_async: ^0.11.0           # Weather
-  sqflite_common_ffi: ^2.3.3      # Airports
-  sqlite3_flutter_libs: ^0.5.24   # native SQLite for the FFI-based demos
+  sqlite3_flutter_libs: ^0.5.24   # native SQLite for drift and sqlite3
 
   path: ^1.9.0
   path_provider: ^2.1.4

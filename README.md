@@ -84,8 +84,9 @@ Download figures are pub.dev's 30-day counts as of August 2026.
 
 Adapters for the ❌ rows are on the roadmap.
 
-The [example app](example/) runs the top five side by side — one dataset per
-package, so an export makes it obvious which wiring produced it.
+The [example app](example/) runs the top three side by side — one dataset per
+package. Those three are the only distinct wiring styles that exist; every
+other row above matches one of them.
 
 ### Wiring each one
 
