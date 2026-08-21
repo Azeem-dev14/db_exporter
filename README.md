@@ -4,9 +4,9 @@
 [![pub points](https://img.shields.io/pub/points/db_exporter)](https://pub.dev/packages/db_exporter/score)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Export a Flutter app's local SQLite database — Drift, sqflite, raw `sqlite3` —
-to a `.db` backup, CSV, JSON or Excel, and get the file out of the sandbox and
-into the user's hands. **Android and iOS.**
+Export a Flutter app's SQLite database — sqflite, sqlite3 or Drift — to a
+`.db` backup, CSV, JSON or Excel, and get the file out of the sandbox and into
+the user's hands. Android and iOS.
 
 ```dart
 final exporter = DbExporter(
@@ -14,33 +14,45 @@ final exporter = DbExporter(
 );
 
 await exporter.exportExcel();
-// -> /storage/emulated/0/dbexports-com.example.myapp/app_20260822_143001.xlsx
 ```
 
-That is the whole integration. No code generation, no schema declarations, and
-**no dependency on your database package** — `db_exporter` depends on neither
-`drift` nor `sqflite`.
+No code generation, no schema declarations, and **no dependency on your
+database package** — `db_exporter` imports neither `drift` nor `sqflite`.
 
----
+## Contents
+
+- [Why this exists](#why-this-exists)
+- [Install](#install)
+- [Supported databases](#supported-databases)
+- [Export formats](#export-formats)
+- [Destinations](#destinations)
+- [Settings](#settings)
+- [Reading the result](#reading-the-result)
+- [Handling errors](#handling-errors)
+- [How the raw backup stays consistent](#how-the-raw-backup-stays-consistent)
+- [Limitations](#limitations)
+- [Extending it](#extending-it)
 
 ## Why this exists
 
 Writing "export my data" by hand looks like three lines of `File.copy`. It
-isn't, and the gap is where the bugs live:
+isn't, and the gap is where the bugs live.
 
-- **Copying a live SQLite file loses data.** Drift and sqflite both run in WAL
-  mode, so recent writes sit in a `-wal` sidecar. Copy only the `.db` and you
-  ship a backup silently missing them. `db_exporter` uses SQLite's own
-  [`VACUUM INTO`][vacuum] snapshot, falling back to a `wal_checkpoint(TRUNCATE)`
-  before copying.
-- **Android 10+ killed the easy path.** `getExternalStorageDirectory()` plus a
-  write to `/Downloads` no longer works. `db_exporter` routes through the
-  Storage Access Framework, so exports land outside the sandbox with **no
-  storage permission at all**.
-- **A CSV of user data is an attack surface.** A row containing
-  `=cmd|'/c calc'!A1` executes when the file is opened in Excel — this is
-  [CSV injection][csvinj]. `db_exporter` neutralises formula triggers by
-  default, while leaving negative numbers numeric.
+**Copying a live SQLite file loses data.** Drift and sqflite both run in WAL
+mode, so recent writes sit in a `-wal` sidecar. Copy only the `.db` and you
+ship a backup silently missing them. `db_exporter` uses SQLite's own
+[`VACUUM INTO`][vacuum] snapshot, falling back to `wal_checkpoint(TRUNCATE)`
+before copying.
+
+**Android 10+ killed the easy path.** `getExternalStorageDirectory()` plus a
+write to `/Downloads` no longer works. `db_exporter` routes through the Storage
+Access Framework, so exports land outside the sandbox with **no storage
+permission**.
+
+**A CSV of user data is an attack surface.** A row containing
+`=cmd|'/c calc'!A1` executes when the file is opened in Excel — this is
+[CSV injection][csvinj]. `db_exporter` neutralises formula triggers by default,
+while leaving negative numbers numeric.
 
 [vacuum]: https://www.sqlite.org/lang_vacuum.html#vacuuminto
 [csvinj]: https://owasp.org/www-community/attacks/CSV_Injection
@@ -51,47 +63,33 @@ isn't, and the gap is where the bugs live:
 flutter pub add db_exporter
 ```
 
-```yaml
-dependencies:
-  db_exporter: ^0.1.0
-```
-
 ## Supported databases
 
-Anything backed by a real SQLite file. `db_exporter` never imports your
-database package — `DbSource` takes two callbacks, so nothing is special-cased
-and packages not listed here work as long as they can run SQL.
+Anything backed by a real SQLite file. `DbSource` takes two callbacks, so
+nothing is special-cased and packages not listed here work as long as they can
+run SQL.
 
-| Package | Downloads/30d | Supported | Wiring |
+| Package | Downloads/30d | Supported | Wires like |
 | --- | ---: | :-: | --- |
-| [`sqflite`](https://pub.dev/packages/sqflite) | 2.75M | ✅ | `query: db.rawQuery, execute: db.execute` |
-| [`sqlite3`](https://pub.dev/packages/sqlite3) | 2.22M | ✅ | `db.select` + `db.execute` |
-| [`drift`](https://pub.dev/packages/drift) | 1.14M | ✅ | `customSelect` + `customStatement` |
-| [`sqlite_async`](https://pub.dev/packages/sqlite_async) | 418k | ✅ | `db.getAll` + `db.execute` |
-| [`sqflite_common_ffi`](https://pub.dev/packages/sqflite_common_ffi) | 246k | ✅ | same as sqflite |
-| [`sqflite_sqlcipher`](https://pub.dev/packages/sqflite_sqlcipher) | 72k | ⚠️ | same as sqflite — **exports are plaintext** |
-| [`powersync`](https://pub.dev/packages/powersync) | 31k | ✅ | same as sqlite_async |
-| [`floor`](https://pub.dev/packages/floor) | 22k | ✅ | `db.database.rawQuery` / `.execute` |
-| [`drift_sqflite`](https://pub.dev/packages/drift_sqflite) | 13k | ✅ | same as drift |
-| [`sembast_sqflite`](https://pub.dev/packages/sembast_sqflite) | 4k | ⚠️ | runs, but sembast stores JSON blobs in one table — you get serialized records, not your fields |
-| [`hive`](https://pub.dev/packages/hive) / `hive_ce` | — | ❌ | key-value boxes, no tables |
-| [`isar`](https://pub.dev/packages/isar) | — | ❌ | NoSQL collections |
-| [`objectbox`](https://pub.dev/packages/objectbox) | — | ❌ | NoSQL, own file format |
-| [`shared_preferences`](https://pub.dev/packages/shared_preferences) | — | ❌ | flat key-value |
-| [`sembast`](https://pub.dev/packages/sembast) / `get_storage` | — | ❌ | document / JSON stores |
+| [`sqflite`](https://pub.dev/packages/sqflite) | 2.75M | ✅ | *sqflite* |
+| [`sqlite3`](https://pub.dev/packages/sqlite3) | 2.22M | ✅ | *sqlite3* |
+| [`drift`](https://pub.dev/packages/drift) | 1.14M | ✅ | *drift* |
+| [`sqlite_async`](https://pub.dev/packages/sqlite_async) | 418k | ✅ | sqlite3, `getAll` for `select` |
+| [`sqflite_common_ffi`](https://pub.dev/packages/sqflite_common_ffi) | 246k | ✅ | sqflite |
+| [`sqflite_sqlcipher`](https://pub.dev/packages/sqflite_sqlcipher) | 72k | ⚠️ | sqflite — **exports are plaintext** |
+| [`powersync`](https://pub.dev/packages/powersync) | 31k | ✅ | sqlite_async |
+| [`floor`](https://pub.dev/packages/floor) | 22k | ✅ | sqflite, via `db.database` |
+| [`drift_sqflite`](https://pub.dev/packages/drift_sqflite) | 13k | ✅ | drift |
+| [`sembast_sqflite`](https://pub.dev/packages/sembast_sqflite) | 4k | ⚠️ | stores JSON blobs in one table — you get serialized records, not columns |
+| `hive` · `isar` · `objectbox` · `shared_preferences` · `sembast` · `get_storage` | — | ❌ | key-value and document stores, no tables |
 
-Download figures are pub.dev's 30-day counts as of August 2026.
+Figures are pub.dev 30-day counts, August 2026. Adapters for the ❌ row are on
+the roadmap.
 
-Adapters for the ❌ rows are on the roadmap.
-
-The [example app](example/) runs the top three side by side — one dataset per
-package. Those three are the only distinct wiring styles that exist; every
-other row above matches one of them.
-
-### Wiring each one
+There are only three wiring styles. Every supported package is one of them:
 
 <details open>
-<summary><b>sqflite</b> — also sqflite_common_ffi, sqflite_sqlcipher, drift_sqflite</summary>
+<summary><b>sqflite</b> — also sqflite_common_ffi, sqflite_sqlcipher, floor</summary>
 
 ```dart
 final source = DbSource(
@@ -100,24 +98,12 @@ final source = DbSource(
   execute: db.execute,
 );
 ```
+
+For `floor`, reach through the generated class: `db.database.rawQuery`.
 </details>
 
 <details>
-<summary><b>drift</b></summary>
-
-```dart
-final source = DbSource(
-  databasePath: dbFile.path,   // only needed for raw .db exports
-  query: (sql) async =>
-      (await db.customSelect(sql).get()).map((row) => row.data).toList(),
-  // Required: customSelect rejects VACUUM, so raw backups need this.
-  execute: db.customStatement,
-);
-```
-</details>
-
-<details>
-<summary><b>sqlite3 / sqlite3_flutter_libs</b></summary>
+<summary><b>sqlite3</b> — also sqlite_async, powersync</summary>
 
 ```dart
 final source = DbSource(
@@ -127,29 +113,21 @@ final source = DbSource(
   execute: (sql) async => db.execute(sql),
 );
 ```
+
+`sqlite_async` and `powersync` are the same with `await db.getAll(sql)` in
+place of `db.select(sql)`.
 </details>
 
 <details>
-<summary><b>sqlite_async / powersync</b></summary>
+<summary><b>drift</b> — also drift_sqflite</summary>
 
 ```dart
 final source = DbSource(
-  databasePath: path,
+  databasePath: dbFile.path,
   query: (sql) async =>
-      (await db.getAll(sql)).map<Map<String, Object?>>((r) => {...r}).toList(),
-  execute: (sql) async => db.execute(sql),
-);
-```
-</details>
-
-<details>
-<summary><b>floor</b></summary>
-
-```dart
-final source = DbSource(
-  databasePath: path,          // where you called $FloorAppDatabase…build()
-  query: db.database.rawQuery,
-  execute: db.database.execute,
+      (await db.customSelect(sql).get()).map((row) => row.data).toList(),
+  // Required: customSelect rejects VACUUM, so raw backups need this.
+  execute: db.customStatement,
 );
 ```
 </details>
@@ -157,6 +135,9 @@ final source = DbSource(
 `databasePath` is required only for raw `.db` exports. `execute` is optional,
 but without it `VACUUM INTO` is unavailable and raw exports quietly fall back
 to checkpoint-and-copy.
+
+The [example app](example/) runs the top three side by side, one dataset per
+package.
 
 ## Export formats
 
@@ -167,8 +148,7 @@ to checkpoint-and-copy.
 | `exportJson()` | `.json` | one file | No | uploads, APIs, debugging |
 | `exportExcel()` | `.excel` | one `.xlsx`, a sheet per table | No | handing data to a non-developer |
 
-Every method takes the **same** six arguments, so the format can be chosen at
-runtime:
+Every method takes the **same** six arguments:
 
 ```dart
 tables:           List<String>?        // default: every user table
@@ -182,12 +162,19 @@ onProgress:       ExportProgress?
 ```dart
 await exporter.exportExcel();
 await exporter.exportCsv(tables: ['orders', 'customers']);
-await exporter.export(format: userChoice);   // runtime pick
+await exporter.exportJson(excludeTables: ['cache', 'sync_log']);
+await exporter.exportDatabaseFile(fileName: 'backup');
 ```
 
-`ExportFormat` carries what you need to drive a UI: `name`, `fileExtension`,
-`mimeType` and `isMultiFile` — use the last one to stop a CSV export being sent
-to the single-file save dialog.
+So the format can be chosen at runtime:
+
+```dart
+await exporter.export(format: userChoice);
+```
+
+`ExportFormat` carries what a UI needs — `name`, `fileExtension`, `mimeType`
+and `isMultiFile`. Use the last one to stop a CSV export being sent to the
+single-file save dialog.
 
 ### How values are converted
 
@@ -207,19 +194,18 @@ Format and destination are independent — any format goes to any destination.
 
 | Destination | What happens | Permissions |
 | --- | --- | --- |
-| `ExportDestination.deviceFolder()` | `dbexports-<packageName>` in the device's main directory — **the default** | Android 11+: All files access |
-| `ExportDestination.appDirectory()` | Writes into the app sandbox, returns the path | none |
-| `ExportDestination.directory(path)` | Writes to a path you name, creating it if missing | depends on the path |
-| `ExportDestination.share()` | Hands the file to the OS share sheet | none |
-| `ExportDestination.saveAs()` | Native save dialog; SAF on Android | none |
+| `deviceFolder()` | `dbexports-<packageName>` in the device's main directory — **the default** | Android 11+: All files access |
+| `appDirectory()` | Writes into the app sandbox, returns the path | none |
+| `directory(path)` | Writes to a path you name, creating it if missing | depends on the path |
+| `share()` | Hands the file to the OS share sheet | none |
+| `saveAs()` | Native save dialog; SAF on Android | none |
 
 ```dart
-// The default — dbexports-com.example.myapp in the device's main directory,
-// created on first use.
-await exporter.exportExcel();
-
 // Set once, for every export this exporter performs.
-final exporter = DbExporter(source, destination: const ExportDestination.share());
+final exporter = DbExporter(
+  source,
+  destination: const ExportDestination.share(),
+);
 
 // Override for a single call.
 await exporter.exportExcel(
@@ -227,45 +213,47 @@ await exporter.exportExcel(
 );
 ```
 
-> **iPad:** always pass `sharePositionOrigin` to `ExportDestination.share()`.
-> UIKit anchors the popover to it and throws without one.
-
-> **The default destination needs a permission on Android 11+.** Writing to
-> the external storage root requires `MANAGE_EXTERNAL_STORAGE`, and Google Play
-> restricts that to file managers and backup apps. Add it to your manifest and
-> send the user to *Settings → Apps → your app → All files access*:
+> [!IMPORTANT]
+> **The default destination needs a permission on Android 11+.** Writing to the
+> external storage root requires `MANAGE_EXTERNAL_STORAGE`, and Google Play
+> restricts that to file managers and backup apps:
 >
 > ```xml
 > <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 > ```
 >
-> If Play will not approve it for your app, set a different default:
-> `DbExporter(source, destination: const ExportDestination.saveAs())`. When the
-> write is denied, `db_exporter` throws `DbExportException` naming the manifest
-> entry and the alternatives rather than a bare permission-denied.
+> Then send the user to *Settings → Apps → your app → All files access*. If
+> Play will not approve it, set a different default:
+> `DbExporter(source, destination: const ExportDestination.saveAs())`.
 
-> **iOS has no device-wide directory.** No permission grants one, so
+> [!NOTE]
+> **iOS has no device-wide directory**, and no permission grants one, so
 > `deviceFolder()` creates `dbexports-<bundleId>` under app documents instead.
-> Use `share()` to put the file into the Files app.
+> `saveAs()` likewise falls back to the share sheet, where "Save to Files" is
+> the platform-idiomatic equivalent.
 
-> **Multi-file CSV:** `saveAs` handles a single file. A multi-table CSV export
-> must use `share()` or `appDirectory()`.
+> [!TIP]
+> On **iPad**, pass `sharePositionOrigin` to `share()` — UIKit anchors the
+> popover to it and throws without one. **Multi-file CSV** cannot use
+> `saveAs()`; use `share()` or a folder destination.
 
-## Per-format settings
+## Settings
 
-Format-specific options live on the exporter objects, not on the call sites —
-which is what keeps every export method's signature identical.
+Per-format options live on the exporter objects, which is what keeps every
+export method's signature identical.
 
 ```dart
 final exporter = DbExporter(
   source,
   destination: const ExportDestination.share(),
   fileName: 'orders',
+  timestampFileNames: true,
   csv: const CsvExporter(delimiter: ';', sanitizeFormulas: false),
   json: const JsonExporter(pretty: false, includeMetadata: false),
-  excel: const ExcelExporter(autoFitColumns: false),
+  excel: const ExcelExporter(boldHeader: true, autoFitColumns: false),
   rawDatabase: const RawDatabaseExporter(
     strategy: RawCopyStrategy.fileCopy,
+    includeWalFiles: true,
   ),
 );
 ```
@@ -275,16 +263,20 @@ final exporter = DbExporter(
 ```dart
 final result = await exporter.exportCsv();
 
-result.files;            // every file produced
-result.single;           // the only file, for single-file formats
-result.tables;           // tables actually included
-result.totalRows;        // rows written
-result.duration;         // wall clock
-result.deliveredPath;    // null for the share sheet — it never tells us
-result.userCancelled;    // user dismissed the dialog
+result.files;             // every file produced
+result.single;            // the only file, for single-file formats
+result.tables;            // tables actually included
+result.totalRows;         // rows written
+result.totalSizeInBytes;
+result.duration;
+result.deliveredPath;     // null for the share sheet — it never tells us
+result.userCancelled;     // user dismissed the dialog
 ```
 
-Failures throw `DbExportException` with an actionable message:
+## Handling errors
+
+Everything recoverable throws `DbExportException` with a message written to be
+shown or logged as-is.
 
 ```dart
 try {
@@ -294,19 +286,12 @@ try {
 }
 ```
 
-## Platform support
-
-Android and iOS. Desktop and web are out of scope for this release — web has
-no `dart:io` filesystem, and browser-backed SQLite lives in IndexedDB rather
-than a file, so a raw `.db` export would be meaningless there.
-
-| Destination | Android | iOS |
-| --- | :-: | :-: |
-| `deviceFolder()` *(default)* | ⚠️ needs All files access on 11+ | folder under app documents |
-| `appDirectory()` | ✅ | ✅ |
-| `directory(path)` | ✅ for app-specific paths | ✅ inside the sandbox |
-| `share()` | ✅ | ✅ |
-| `saveAs()` | ✅ via SAF | ↩︎ falls back to share |
+| Thrown when | Message tells you |
+| --- | --- |
+| Raw export without `databasePath` | which constructor argument is missing |
+| Unknown name in `tables:` | the names available |
+| Device folder denied | the manifest entry and the alternatives |
+| `saveAs` given several files | to use `share()` instead |
 
 ## How the raw backup stays consistent
 
@@ -321,42 +306,46 @@ consistent **even while your app keeps writing**, and it arrives defragmented �
 usually smaller than the original. It needs SQLite 3.27+ (Android 11+, iOS 14+,
 or any app bundling `sqlite3_flutter_libs`).
 
-Where that is unavailable, the fallback is:
-
-```sql
-PRAGMA wal_checkpoint(TRUNCATE)   -- fold the -wal file back in
-```
-
-…followed by a byte copy. Force it with `DbExporter(source, rawDatabase: const
-RawDatabaseExporter(strategy: RawCopyStrategy.fileCopy))`, and make sure
+Where that is unavailable, the fallback is `PRAGMA wal_checkpoint(TRUNCATE)` —
+folding the `-wal` file back in — followed by a byte copy. Force it with
+`RawDatabaseExporter(strategy: RawCopyStrategy.fileCopy)`, and make sure
 nothing writes during the copy.
 
-## Things worth knowing
+## Limitations
 
 - **Memory.** CSV, JSON and Excel materialise rows in memory. Use
   `maxRowsPerTable`, or export the raw `.db` for large datasets — it streams
   through SQLite and never touches the Dart heap.
-- **BLOBs** become base64 in CSV, JSON and Excel. Only the raw `.db` keeps
-  them as bytes.
-- **CSV filenames** are `<base>_<timestamp>_<table>.csv`, so every file from a
-  single export sorts together.
 - **Encryption is not included.** Exporting an SQLCipher database via
   `VACUUM INTO` produces a *plaintext* copy. Encrypt the output yourself before
   it leaves the device.
 - **Nothing is redacted.** Anything in the tables you select ends up in the
   file. Use `excludeTables` for token and session tables.
+- **No web support.** Web has no `dart:io` filesystem, and browser-backed
+  SQLite lives in IndexedDB rather than a file.
+- **CSV filenames** are `<base>_<timestamp>_<table>.csv`, so every file from a
+  single export sorts together.
 
 ## Extending it
 
 `TabularExporter` is public — implement it for a SQL dump, Parquet, or a zipped
 bundle, and hand it the same `TableData` list the built-in formats receive.
 
-## Roadmap
+```dart
+class MarkdownExporter implements TabularExporter {
+  @override
+  ExportFormat get format => ExportFormat.csv;
 
-- SQL dump (`CREATE TABLE` + `INSERT`)
-- Zipped and AES-encrypted bundles
-- Hive / Isar / ObjectBox adapters
-- Import and restore
+  @override
+  Future<List<ExportedFile>> write({
+    required List<TableData> tables,
+    required Directory stagingDirectory,
+    required String baseName,
+  }) async {
+    // …write files into stagingDirectory, return them.
+  }
+}
+```
 
 ## Contributing
 

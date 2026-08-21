@@ -6,10 +6,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../model/export_destination.dart';
-import 'device_folder.dart';
 import '../model/export_exception.dart';
 import '../model/export_format.dart';
 import '../model/export_result.dart';
+import 'device_folder.dart';
 
 /// The outcome of moving staged files to their destination.
 class DeliveryOutcome {
@@ -128,10 +128,21 @@ abstract final class ExportDelivery {
     ShareDestination destination,
     ExportFormat format,
   ) async {
+    // Move out of staging first. share() returns as soon as the chooser is
+    // dismissed, but the receiving app reads the file afterwards through a
+    // content URI — and the caller deletes the staging directory the moment
+    // this returns. Sharing from the cache directory instead means the bytes
+    // outlive the call; the OS reclaims that space on its own schedule.
+    final cache = Directory(
+      p.join((await getTemporaryDirectory()).path, 'db_exporter_share'),
+    );
+    await cache.create(recursive: true);
+    final staged = await _moveAll(files, cache);
+
     final result = await SharePlus.instance.share(
       ShareParams(
         files: [
-          for (final exported in files)
+          for (final exported in staged.files)
             XFile(exported.path, mimeType: format.mimeType),
         ],
         subject: destination.subject,
@@ -142,7 +153,7 @@ abstract final class ExportDelivery {
     // The share sheet never reports where the file went, only whether the user
     // picked a target at all.
     return DeliveryOutcome(
-      files: files,
+      files: staged.files,
       cancelled: result.status == ShareResultStatus.dismissed,
     );
   }

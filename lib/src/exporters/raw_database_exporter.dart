@@ -38,13 +38,15 @@ class RawDatabaseExporter {
     this.includeWalFiles = false,
   });
 
+  /// How to obtain the copy. See [RawCopyStrategy].
   final RawCopyStrategy strategy;
 
   /// Also copy the `-wal` and `-shm` sidecars, when they exist.
   ///
   /// Rarely needed: both strategies fold the log into the main file first, so
   /// the sidecars should be empty by the time we copy. Kept for forensic
-  /// exports where you want the on-disk state verbatim.
+  /// exports where you want the on-disk state verbatim. Turning this on makes
+  /// the export multi-file, which rules out `ExportDestination.saveAs`.
   final bool includeWalFiles;
 
   ExportFormat get format => ExportFormat.rawDatabase;
@@ -74,15 +76,10 @@ class RawDatabaseExporter {
       ),
     );
 
-    var copied = false;
-    if (strategy == RawCopyStrategy.vacuumInto) {
-      copied = await _vacuumInto(source, targetPath);
-    }
-    if (!copied) {
-      copied = await _copyBytes(source, sourcePath, targetPath);
-    }
-    if (!copied) {
-      throw const DbExportException('Could not produce a database copy.');
+    final snapshotted = strategy == RawCopyStrategy.vacuumInto &&
+        await _vacuumInto(source, targetPath);
+    if (!snapshotted) {
+      await _copyBytes(source, sourcePath, targetPath);
     }
 
     final files = <ExportedFile>[await ExportedFile.fromFile(File(targetPath))];
@@ -110,13 +107,13 @@ class RawDatabaseExporter {
     }
   }
 
-  Future<bool> _copyBytes(
+  /// Folds the write-ahead log into the main file, then copies the bytes.
+  Future<void> _copyBytes(
     DbSource source,
     String sourcePath,
     String targetPath,
   ) async {
     await source.checkpointWal();
     await File(sourcePath).copy(targetPath);
-    return true;
   }
 }
