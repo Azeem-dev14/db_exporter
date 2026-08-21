@@ -43,6 +43,7 @@ abstract final class ExportDelivery {
     }
     return switch (destination) {
       final AppDirectoryDestination d => _toAppDirectory(files, d),
+      final DirectoryDestination d => _toDirectory(files, d),
       final ShareDestination d => _toShareSheet(files, d, format),
       final SaveAsDestination d => _toSaveDialog(files, d, format),
     };
@@ -57,7 +58,14 @@ abstract final class ExportDelivery {
         : await getApplicationDocumentsDirectory();
     final target = Directory(p.join(root.path, destination.subdirectory));
     await target.create(recursive: true);
+    return _moveAll(files, target);
+  }
 
+  /// Moves every staged file into [target], preserving their names.
+  static Future<DeliveryOutcome> _moveAll(
+    List<ExportedFile> files,
+    Directory target,
+  ) async {
     final moved = <ExportedFile>[];
     for (final exported in files) {
       final file = await _move(
@@ -72,6 +80,34 @@ abstract final class ExportDelivery {
       ));
     }
     return DeliveryOutcome(files: moved, path: target.path);
+  }
+
+  static Future<DeliveryOutcome> _toDirectory(
+    List<ExportedFile> files,
+    DirectoryDestination destination,
+  ) async {
+    final target = Directory(destination.path);
+    if (!await target.exists()) {
+      if (!destination.createIfMissing) {
+        throw DbExportException(
+          'Directory does not exist: ${destination.path}. '
+          'Pass createIfMissing: true to create it.',
+        );
+      }
+      try {
+        await target.create(recursive: true);
+      } on FileSystemException catch (error) {
+        // The usual cause on Android 10+ is scoped storage refusing a public
+        // path such as /storage/emulated/0/Download.
+        throw DbExportException(
+          'Could not create ${destination.path}. On Android 10+ the public '
+          'Downloads folder is not writable directly — use '
+          'ExportDestination.saveAs() instead.',
+          cause: error,
+        );
+      }
+    }
+    return _moveAll(files, target);
   }
 
   static Future<DeliveryOutcome> _toShareSheet(

@@ -142,6 +142,7 @@ Format and destination are independent — any format goes to any destination.
 | Destination | What happens | Permissions |
 | --- | --- | --- |
 | `ExportDestination.appDirectory()` | Writes into the app sandbox, returns the path | none |
+| `ExportDestination.directory(path)` | Writes to a path you name, creating it if missing | depends on the path |
 | `ExportDestination.share()` | Hands the file to the OS share sheet | none |
 | `ExportDestination.saveAs()` | Native save dialog; SAF on Android | none |
 
@@ -157,6 +158,12 @@ await exporter.exportExcel(
 
 > **iPad:** always pass `sharePositionOrigin` to `ExportDestination.share()`.
 > UIKit anchors the popover to it and throws without one.
+
+> **Android Downloads:** `ExportDestination.directory('/storage/emulated/0/Download')`
+> fails on Android 10+ — scoped storage denies it whatever the manifest says.
+> Use `saveAs()`, which reaches Downloads through SAF with no permission. For a
+> real path, use `getExternalStorageDirectory()` (app-specific external
+> storage, visible over USB) or `getDownloadsDirectory()` on desktop.
 
 > **Multi-file CSV:** `saveAs` handles a single file. A multi-table CSV export
 > must use `share()` or `appDirectory()`.

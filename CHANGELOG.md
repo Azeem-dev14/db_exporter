@@ -13,8 +13,9 @@ Initial release.
 - Raw `.db` export via SQLite's `VACUUM INTO`, which snapshots a live database
   consistently, with a `wal_checkpoint(TRUNCATE)` + byte-copy fallback for
   SQLite builds older than 3.27.
-- Three pluggable destinations: the app sandbox, the OS share sheet, and a
-  native save dialog backed by the Storage Access Framework on Android.
+- Four pluggable destinations: the app sandbox, a directory you name (created
+  if missing), the OS share sheet, and a native save dialog backed by the
+  Storage Access Framework on Android.
 - Table filtering (`tables`, `excludeTables`), row caps (`maxRowsPerTable`)
   and per-table progress reporting.
 - `TabularExporter` as a public extension point for custom formats.

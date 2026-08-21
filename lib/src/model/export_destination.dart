@@ -36,6 +36,35 @@ sealed class ExportDestination {
     Rect? sharePositionOrigin,
   }) = ShareDestination;
 
+  /// Write to a directory you name, creating it if it does not exist.
+  ///
+  /// Use this for desktop, for Android's app-specific external directory, or
+  /// for a subfolder of the sandbox you manage yourself.
+  ///
+  /// **This is not a way onto Android's public Downloads folder.** Since
+  /// Android 10 (API 29), scoped storage denies writes to
+  /// `/storage/emulated/0/Download` regardless of manifest permissions, unless
+  /// the app holds `MANAGE_EXTERNAL_STORAGE` — which Play Store rejects for
+  /// most apps. Use [ExportDestination.saveAs] instead: the Storage Access
+  /// Framework writes there with no permission at all.
+  ///
+  /// Resolve the path with `path_provider` rather than hardcoding it:
+  ///
+  /// ```dart
+  /// // Android: /storage/emulated/0/Android/data/<pkg>/files/exports
+  /// //   — writable with no permission, visible over USB.
+  /// final root = await getExternalStorageDirectory();
+  ///
+  /// // Desktop: the real Downloads folder. Null on Android and iOS.
+  /// final downloads = await getDownloadsDirectory();
+  ///
+  /// destination: ExportDestination.directory('${root!.path}/exports');
+  /// ```
+  const factory ExportDestination.directory(
+    String path, {
+    bool createIfMissing,
+  }) = DirectoryDestination;
+
   /// Show a native save dialog and let the user pick the location.
   ///
   /// On Android this goes through the Storage Access Framework, so it writes
@@ -64,6 +93,20 @@ final class AppDirectoryDestination extends ExportDestination {
 
   /// Folder created under the chosen root.
   final String subdirectory;
+}
+
+/// See [ExportDestination.directory].
+final class DirectoryDestination extends ExportDestination {
+  const DirectoryDestination(this.path, {this.createIfMissing = true});
+
+  /// Absolute path of the directory to write into.
+  final String path;
+
+  /// Create the directory, and any missing parents, when it is absent.
+  ///
+  /// With this false, exporting to a missing directory throws
+  /// `DbExportException` rather than creating it.
+  final bool createIfMissing;
 }
 
 /// See [ExportDestination.share].
