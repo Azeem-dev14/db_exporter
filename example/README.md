@@ -8,7 +8,7 @@ four ways:
 | Share raw `.db` backup | `rawDatabase` | share sheet |
 | Save `.xlsx` | `excel` | native save dialog |
 | Share CSV per table | `csv` | share sheet |
-| Write JSON | `json` | app documents directory |
+| Write JSON | `json` | `dbexports-<packageName>` device folder |
 
 The only db_exporter-specific code is the `DbSource` in `_ExportDemoPageState`:
 
@@ -21,6 +21,12 @@ DbExporter(
   ),
   destination: const ExportDestination.share(),
 );
+```
+
+The device-folder button needs All files access on Android 11+:
+
+```xml
+<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 ```
 
 Run it with:

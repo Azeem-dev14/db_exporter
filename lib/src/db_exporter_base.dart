@@ -41,7 +41,7 @@ typedef ExportProgress = void Function(int completed, int total, String? table);
 class DbExporter {
   const DbExporter(
     this.source, {
-    this.destination = const ExportDestination.appDirectory(),
+    this.destination = const ExportDestination.deviceFolder(),
     this.fileName,
     this.timestampFileNames = true,
     this.csv = const CsvExporter(),

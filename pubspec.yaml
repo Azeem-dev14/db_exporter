@@ -1,8 +1,8 @@
 name: db_exporter
 description: >-
   WAL-safe export of SQLite-backed Flutter databases (Drift, sqflite) to raw
-  .db, CSV, JSON or Excel, with pluggable delivery to the app directory, the
-  share sheet, or a native save-as dialog.
+  .db, CSV, JSON or Excel on Android and iOS, delivered to a device folder,
+  the share sheet, or a native save dialog.
 version: 0.1.0
 repository: https://github.com/Azeem-dev14/db_exporter
 issue_tracker: https://github.com/Azeem-dev14/db_exporter/issues
@@ -13,6 +13,10 @@ topics:
   - export
   - backup
   - csv
+
+platforms:
+  android:
+  ios:
 
 environment:
   sdk: ^3.6.0
@@ -26,6 +30,7 @@ dependencies:
   excel: ^4.0.0
   path: ^1.9.0
   # Platform plumbing for delivery.
+  package_info_plus: ^8.0.0
   path_provider: ^2.1.4
   share_plus: ^11.0.0
   file_picker: ^8.1.0

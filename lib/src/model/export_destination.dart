@@ -7,6 +7,38 @@ import 'dart:ui' show Rect;
 sealed class ExportDestination {
   const ExportDestination();
 
+  /// Write to `dbexports-<packageName>` in the device's main directory.
+  ///
+  /// This is the default. The folder is created on first use, and the package
+  /// name is read from the platform, so exports from different apps sit side
+  /// by side and are obvious in a file manager:
+  ///
+  /// ```text
+  /// /storage/emulated/0/dbexports-com.example.myapp/myapp_20260822_143001.xlsx
+  /// ```
+  ///
+  /// Where the folder lands per platform:
+  ///
+  /// | Platform | Parent directory |
+  /// | --- | --- |
+  /// | Android | `/storage/emulated/0` (external storage root) |
+  /// | iOS | app documents directory |
+  /// | Desktop | the user's home directory |
+  ///
+  /// **Android 11+ needs `MANAGE_EXTERNAL_STORAGE` for this.** Scoped storage
+  /// denies writes to the external storage root without it, and Google Play
+  /// restricts that permission to file managers and backup apps. When the
+  /// write is denied, this throws `DbExportException` with the manifest entry
+  /// and the alternatives spelled out. If your app is not one Play will
+  /// approve, prefer [ExportDestination.saveAs].
+  ///
+  /// **iOS has no device-wide directory** and no permission that grants one,
+  /// so the folder is created under app documents instead.
+  const factory ExportDestination.deviceFolder({
+    String? packageName,
+    String? folderName,
+  }) = DeviceFolderDestination;
+
   /// Keep the file inside the app sandbox and just return the path.
   ///
   /// No permissions, no UI, works in tests and background jobs. Use this when
@@ -93,6 +125,17 @@ final class AppDirectoryDestination extends ExportDestination {
 
   /// Folder created under the chosen root.
   final String subdirectory;
+}
+
+/// See [ExportDestination.deviceFolder].
+final class DeviceFolderDestination extends ExportDestination {
+  const DeviceFolderDestination({this.packageName, this.folderName});
+
+  /// Override the detected package name, mostly for tests.
+  final String? packageName;
+
+  /// Replace the whole folder name, dropping the `dbexports-` convention.
+  final String? folderName;
 }
 
 /// See [ExportDestination.directory].

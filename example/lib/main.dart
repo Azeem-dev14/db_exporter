@@ -168,12 +168,14 @@ class _ExportDemoPageState extends State<ExportDemoPage> {
               onPressed: ready
                   ? () => _run(
                         'JSON export',
-                        // No permissions, no UI — straight to the sandbox.
-                        const ExportDestination.appDirectory(),
+                        // The default: dbexports-<packageName> in the
+                        // device's main directory. Needs All files access
+                        // on Android 11+.
+                        const ExportDestination.deviceFolder(),
                         (exporter) => exporter.exportJson(),
                       )
                   : null,
-              child: const Text('Write JSON to app directory'),
+              child: const Text('Write JSON to device folder'),
             ),
           ],
         ),

@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../model/export_destination.dart';
+import 'device_folder.dart';
 import '../model/export_exception.dart';
 import '../model/export_format.dart';
 import '../model/export_result.dart';
@@ -42,6 +43,7 @@ abstract final class ExportDelivery {
       throw const DbExportException('Nothing to deliver: no files produced.');
     }
     return switch (destination) {
+      final DeviceFolderDestination d => _toDeviceFolder(files, d),
       final AppDirectoryDestination d => _toAppDirectory(files, d),
       final DirectoryDestination d => _toDirectory(files, d),
       final ShareDestination d => _toShareSheet(files, d, format),
@@ -80,6 +82,17 @@ abstract final class ExportDelivery {
       ));
     }
     return DeliveryOutcome(files: moved, path: target.path);
+  }
+
+  static Future<DeliveryOutcome> _toDeviceFolder(
+    List<ExportedFile> files,
+    DeviceFolderDestination destination,
+  ) async {
+    final target = await DeviceFolder.create(
+      package: destination.packageName,
+      name: destination.folderName,
+    );
+    return _moveAll(files, target);
   }
 
   static Future<DeliveryOutcome> _toDirectory(

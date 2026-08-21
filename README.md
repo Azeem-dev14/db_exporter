@@ -6,15 +6,15 @@
 
 Export a Flutter app's local SQLite database — Drift, sqflite, raw `sqlite3` —
 to a `.db` backup, CSV, JSON or Excel, and get the file out of the sandbox and
-into the user's hands.
+into the user's hands. **Android and iOS.**
 
 ```dart
 final exporter = DbExporter(
   DbSource(databasePath: db.path, query: db.rawQuery, execute: db.execute),
-  destination: const ExportDestination.share(subject: 'My data'),
 );
 
 await exporter.exportExcel();
+// -> /storage/emulated/0/dbexports-com.example.myapp/app_20260822_143001.xlsx
 ```
 
 That is the whole integration. No code generation, no schema declarations, and
@@ -141,12 +141,17 @@ Format and destination are independent — any format goes to any destination.
 
 | Destination | What happens | Permissions |
 | --- | --- | --- |
+| `ExportDestination.deviceFolder()` | `dbexports-<packageName>` in the device's main directory — **the default** | Android 11+: All files access |
 | `ExportDestination.appDirectory()` | Writes into the app sandbox, returns the path | none |
 | `ExportDestination.directory(path)` | Writes to a path you name, creating it if missing | depends on the path |
 | `ExportDestination.share()` | Hands the file to the OS share sheet | none |
 | `ExportDestination.saveAs()` | Native save dialog; SAF on Android | none |
 
 ```dart
+// The default — dbexports-com.example.myapp in the device's main directory,
+// created on first use.
+await exporter.exportExcel();
+
 // Set once, for every export this exporter performs.
 final exporter = DbExporter(source, destination: const ExportDestination.share());
 
@@ -159,11 +164,23 @@ await exporter.exportExcel(
 > **iPad:** always pass `sharePositionOrigin` to `ExportDestination.share()`.
 > UIKit anchors the popover to it and throws without one.
 
-> **Android Downloads:** `ExportDestination.directory('/storage/emulated/0/Download')`
-> fails on Android 10+ — scoped storage denies it whatever the manifest says.
-> Use `saveAs()`, which reaches Downloads through SAF with no permission. For a
-> real path, use `getExternalStorageDirectory()` (app-specific external
-> storage, visible over USB) or `getDownloadsDirectory()` on desktop.
+> **The default destination needs a permission on Android 11+.** Writing to
+> the external storage root requires `MANAGE_EXTERNAL_STORAGE`, and Google Play
+> restricts that to file managers and backup apps. Add it to your manifest and
+> send the user to *Settings → Apps → your app → All files access*:
+>
+> ```xml
+> <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+> ```
+>
+> If Play will not approve it for your app, set a different default:
+> `DbExporter(source, destination: const ExportDestination.saveAs())`. When the
+> write is denied, `db_exporter` throws `DbExportException` naming the manifest
+> entry and the alternatives rather than a bare permission-denied.
+
+> **iOS has no device-wide directory.** No permission grants one, so
+> `deviceFolder()` creates `dbexports-<bundleId>` under app documents instead.
+> Use `share()` to put the file into the Files app.
 
 > **Multi-file CSV:** `saveAs` handles a single file. A multi-table CSV export
 > must use `share()` or `appDirectory()`.
@@ -213,15 +230,17 @@ try {
 
 ## Platform support
 
-| | Android | iOS | macOS | Windows | Linux | Web |
-| --- | :-: | :-: | :-: | :-: | :-: | :-: |
-| `appDirectory` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `share` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| `saveAs` | ✅ (SAF) | ↩︎ share | ✅ | ✅ | ✅ | ❌ |
+Android and iOS. Desktop and web are out of scope for this release — web has
+no `dart:io` filesystem, and browser-backed SQLite lives in IndexedDB rather
+than a file, so a raw `.db` export would be meaningless there.
 
-Web is out of scope: it has no `dart:io` filesystem, and browser-backed SQLite
-lives in IndexedDB rather than a file. Raw `.db` export would be meaningless
-there.
+| Destination | Android | iOS |
+| --- | :-: | :-: |
+| `deviceFolder()` *(default)* | ⚠️ needs All files access on 11+ | folder under app documents |
+| `appDirectory()` | ✅ | ✅ |
+| `directory(path)` | ✅ for app-specific paths | ✅ inside the sandbox |
+| `share()` | ✅ | ✅ |
+| `saveAs()` | ✅ via SAF | ↩︎ falls back to share |
 
 ## How the raw backup stays consistent
 
