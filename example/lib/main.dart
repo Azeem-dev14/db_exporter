@@ -1,9 +1,7 @@
 import 'package:db_exporter/db_exporter.dart';
 import 'package:flutter/material.dart';
 
-import 'databases/drift_music.dart';
-import 'databases/sqflite_schools.dart';
-import 'databases/sqlite3_bookstore.dart';
+import 'databases/all.dart';
 import 'demo_database.dart';
 
 void main() => runApp(const ExampleApp());
@@ -33,11 +31,7 @@ class ExportDemoPage extends StatefulWidget {
 class _ExportDemoPageState extends State<ExportDemoPage> {
   /// Every supported wiring style, each with a distinct dataset so the
   /// exported file makes it obvious which database produced it.
-  final List<DemoDatabase> _databases = [
-    SqfliteSchools(),
-    DriftMusic(),
-    Sqlite3Bookstore(),
-  ];
+  final List<DemoDatabase> _databases = buildDemoDatabases();
 
   late DemoDatabase _database = _databases.first;
   ExportFormat _format = ExportFormat.excel;
@@ -148,6 +142,15 @@ class _ExportDemoPageState extends State<ExportDemoPage> {
                 : (destination) =>
                     setState(() => _destination = destination!),
           ),
+
+          if (_database.caveat != null) ...[
+            const SizedBox(height: 12),
+            _Banner(
+              icon: Icons.warning_amber_outlined,
+              color: theme.colorScheme.tertiary,
+              text: _database.caveat!,
+            ),
+          ],
 
           if (!_combinationValid) ...[
             const SizedBox(height: 12),

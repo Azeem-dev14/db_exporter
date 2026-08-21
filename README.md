@@ -82,6 +82,9 @@ and packages not listed here work as long as they can run SQL.
 
 Adapters for the ❌ rows are on the roadmap.
 
+The [example app](example/) runs seven of these side by side — one dataset per
+package, so an export makes it obvious which wiring produced it.
+
 ### Wiring each one
 
 <details open>

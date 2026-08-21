@@ -1,5 +1,5 @@
 name: db_exporter_example
-description: Exports three different local databases with db_exporter.
+description: Exports seven different local databases with db_exporter.
 publish_to: none
 version: 1.0.0
 
@@ -13,10 +13,15 @@ dependencies:
     path: ../
 
   # One demo per storage package, each with its own dataset.
-  sqflite: ^2.3.3
-  drift: ^2.20.0
-  sqlite3: ^2.4.0
-  sqlite3_flutter_libs: ^0.5.24
+  sqflite: ^2.3.3                 # Schools
+  sqflite_common_ffi: ^2.3.3      # Airports
+  drift: ^2.20.0                  # Music
+  drift_sqflite: ^2.0.1           # Recipes
+  sqlite3: ^2.4.0                 # Bookstore
+  sqlite_async: ^0.11.0           # Weather
+  sembast: ^3.7.0                 # Notes
+  sembast_sqflite: ^2.2.0
+  sqlite3_flutter_libs: ^0.5.24   # native SQLite for the FFI-based demos
 
   path: ^1.9.0
   path_provider: ^2.1.4
