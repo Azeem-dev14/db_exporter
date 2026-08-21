@@ -7,7 +7,9 @@ Initial release.
 - `DbSource` — adapts any SQLite-backed store (Drift, sqflite, `sqlite3`) via
   two callbacks, so the package depends on no database library itself.
 - `DbExporter` with `exportDatabaseFile()`, `exportCsv()`, `exportJson()` and
-  `exportExcel()`, plus a general `export()` for full control.
+  `exportExcel()`, plus `export(format:)` for picking a format at runtime. The
+  database and destination are fixed on the constructor and per-format settings
+  live on the exporter objects, so all five methods share one signature.
 - Raw `.db` export via SQLite's `VACUUM INTO`, which snapshots a live database
   consistently, with a `wal_checkpoint(TRUNCATE)` + byte-copy fallback for
   SQLite builds older than 3.27.

@@ -11,11 +11,10 @@ into the user's hands.
 ```dart
 final exporter = DbExporter(
   DbSource(databasePath: db.path, query: db.rawQuery, execute: db.execute),
-);
-
-await exporter.exportExcel(
   destination: const ExportDestination.share(subject: 'My data'),
 );
+
+await exporter.exportExcel();
 ```
 
 That is the whole integration. No code generation, no schema declarations, and
@@ -114,7 +113,7 @@ to checkpoint-and-copy.
 | `exportExcel()` | one `.xlsx`, a sheet per table | No | handing data to a non-developer |
 
 ```dart
-// Everything, to the sandbox.
+// Everything.
 final result = await exporter.exportJson();
 
 // Two tables only, capped, with progress.
@@ -128,6 +127,14 @@ await exporter.exportCsv(
 await exporter.exportExcel(excludeTables: ['cache', 'sync_log']);
 ```
 
+Every export method takes the **same** arguments — `tables`, `excludeTables`,
+`fileName`, `maxRowsPerTable`, `destination`, `onProgress` — so the format can
+be chosen at runtime:
+
+```dart
+await exporter.export(format: userChoice);   // ExportFormat.csv, .excel, …
+```
+
 ## Destinations
 
 Format and destination are independent — any format goes to any destination.
@@ -139,13 +146,10 @@ Format and destination are independent — any format goes to any destination.
 | `ExportDestination.saveAs()` | Native save dialog; SAF on Android | none |
 
 ```dart
-// Silent — for scheduled backups or an upload you drive yourself.
-await exporter.exportDatabaseFile(
-  destination: const ExportDestination.appDirectory(temporary: true),
-);
+// Set once, for every export this exporter performs.
+final exporter = DbExporter(source, destination: const ExportDestination.share());
 
-// Let the user pick a folder. Android uses SAF; iOS falls back to the
-// share sheet, where "Save to Files" is the platform-idiomatic equivalent.
+// Override for a single call.
 await exporter.exportExcel(
   destination: const ExportDestination.saveAs(dialogTitle: 'Save report'),
 );
@@ -156,6 +160,25 @@ await exporter.exportExcel(
 
 > **Multi-file CSV:** `saveAs` handles a single file. A multi-table CSV export
 > must use `share()` or `appDirectory()`.
+
+## Per-format settings
+
+Format-specific options live on the exporter objects, not on the call sites —
+which is what keeps every export method's signature identical.
+
+```dart
+final exporter = DbExporter(
+  source,
+  destination: const ExportDestination.share(),
+  fileName: 'orders',
+  csv: const CsvExporter(delimiter: ';', sanitizeFormulas: false),
+  json: const JsonExporter(pretty: false, includeMetadata: false),
+  excel: const ExcelExporter(autoFitColumns: false),
+  rawDatabase: const RawDatabaseExporter(
+    strategy: RawCopyStrategy.fileCopy,
+  ),
+);
+```
 
 ## Reading the result
 
@@ -212,9 +235,9 @@ Where that is unavailable, the fallback is:
 PRAGMA wal_checkpoint(TRUNCATE)   -- fold the -wal file back in
 ```
 
-…followed by a byte copy. Force it with
-`exportDatabaseFile(strategy: RawCopyStrategy.fileCopy)`, and make sure nothing
-writes during the copy.
+…followed by a byte copy. Force it with `DbExporter(source, rawDatabase: const
+RawDatabaseExporter(strategy: RawCopyStrategy.fileCopy))`, and make sure
+nothing writes during the copy.
 
 ## Things worth knowing
 

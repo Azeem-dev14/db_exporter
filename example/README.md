@@ -19,6 +19,7 @@ DbExporter(
     query: db.rawQuery,
     execute: db.execute,
   ),
+  destination: const ExportDestination.share(),
 );
 ```
 

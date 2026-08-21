@@ -75,16 +75,18 @@ class _ExportDemoPageState extends State<ExportDemoPage> {
   }
 
   /// The only db_exporter-specific wiring an app needs.
-  DbExporter get _exporter => DbExporter(
+  DbExporter _exporterTo(ExportDestination destination) => DbExporter(
         DbSource(
           databasePath: _database!.path,
           query: _database!.rawQuery,
           execute: _database!.execute,
         ),
+        destination: destination,
       );
 
   Future<void> _run(
     String label,
+    ExportDestination destination,
     Future<ExportResult> Function(DbExporter exporter) action,
   ) async {
     setState(() {
@@ -92,7 +94,7 @@ class _ExportDemoPageState extends State<ExportDemoPage> {
       _status = '$label…';
     });
     try {
-      final result = await action(_exporter);
+      final result = await action(_exporterTo(destination));
       setState(() {
         _status = result.userCancelled
             ? '$label cancelled.'
@@ -129,11 +131,10 @@ class _ExportDemoPageState extends State<ExportDemoPage> {
               onPressed: ready
                   ? () => _run(
                         'Backup .db',
-                        (exporter) => exporter.exportDatabaseFile(
-                          destination: const ExportDestination.share(
-                            subject: 'Database backup',
-                          ),
+                        const ExportDestination.share(
+                          subject: 'Database backup',
                         ),
+                        (exporter) => exporter.exportDatabaseFile(),
                       )
                   : null,
               child: const Text('Share raw .db backup'),
@@ -143,11 +144,10 @@ class _ExportDemoPageState extends State<ExportDemoPage> {
               onPressed: ready
                   ? () => _run(
                         'Excel export',
-                        (exporter) => exporter.exportExcel(
-                          destination: const ExportDestination.saveAs(
-                            dialogTitle: 'Save workbook',
-                          ),
+                        const ExportDestination.saveAs(
+                          dialogTitle: 'Save workbook',
                         ),
+                        (exporter) => exporter.exportExcel(),
                       )
                   : null,
               child: const Text('Save .xlsx via system dialog'),
@@ -157,9 +157,8 @@ class _ExportDemoPageState extends State<ExportDemoPage> {
               onPressed: ready
                   ? () => _run(
                         'CSV export',
-                        (exporter) => exporter.exportCsv(
-                          destination: const ExportDestination.share(),
-                        ),
+                        const ExportDestination.share(),
+                        (exporter) => exporter.exportCsv(),
                       )
                   : null,
               child: const Text('Share one CSV per table'),
@@ -169,10 +168,9 @@ class _ExportDemoPageState extends State<ExportDemoPage> {
               onPressed: ready
                   ? () => _run(
                         'JSON export',
-                        (exporter) => exporter.exportJson(
-                          // No permissions, no UI — straight to the sandbox.
-                          destination: const ExportDestination.appDirectory(),
-                        ),
+                        // No permissions, no UI — straight to the sandbox.
+                        const ExportDestination.appDirectory(),
+                        (exporter) => exporter.exportJson(),
                       )
                   : null,
               child: const Text('Write JSON to app directory'),

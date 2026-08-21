@@ -21,139 +21,161 @@ typedef ExportProgress = void Function(int completed, int total, String? table);
 
 /// Exports a SQLite-backed database to a file and delivers it somewhere.
 ///
+/// The database and the destination are fixed when you build the exporter, so
+/// every export method takes the same arguments and differs only in format:
+///
 /// ```dart
 /// final exporter = DbExporter(
-///   DbSource(databasePath: db.path, query: db.rawQuery),
+///   DbSource(databasePath: db.path, query: db.rawQuery, execute: db.execute),
+///   destination: const ExportDestination.share(),
 /// );
 ///
-/// final result = await exporter.exportExcel(
-///   destination: const ExportDestination.share(subject: 'My data'),
-/// );
+/// await exporter.exportExcel();
+/// await exporter.exportCsv(tables: ['orders']);
+/// await exporter.export(format: chosenFormat);
 /// ```
+///
+/// Per-format settings — the CSV delimiter, JSON indentation, the raw-copy
+/// strategy — live on the exporter objects passed here, keeping them out of
+/// the call sites.
 class DbExporter {
   const DbExporter(
     this.source, {
-    this.defaultBaseName,
+    this.destination = const ExportDestination.appDirectory(),
+    this.fileName,
+    this.timestampFileNames = true,
+    this.csv = const CsvExporter(),
+    this.json = const JsonExporter(),
+    this.excel = const ExcelExporter(),
+    this.rawDatabase = const RawDatabaseExporter(),
   });
 
+  /// The database to read from.
   final DbSource source;
 
-  /// Base filename for exports; defaults to the database filename, then to
-  /// `export`.
-  final String? defaultBaseName;
+  /// Where finished files are delivered, unless an export overrides it.
+  final ExportDestination destination;
+
+  /// Base filename; defaults to the database filename, then to `export`.
+  final String? fileName;
+
+  /// Append `_<yyyyMMdd_HHmmss>` to filenames.
+  final bool timestampFileNames;
+
+  /// CSV settings — delimiter, BOM, header row, formula sanitisation.
+  final CsvExporter csv;
+
+  /// JSON settings — indentation and the `_meta` block.
+  final JsonExporter json;
+
+  /// Excel settings — bold header and column auto-fit.
+  final ExcelExporter excel;
+
+  /// Raw `.db` settings — copy strategy and WAL sidecars.
+  final RawDatabaseExporter rawDatabase;
 
   /// Copies the database file itself. Best for backups and support bundles.
+  ///
+  /// [tables], [excludeTables] and [maxRowsPerTable] do not apply to a file
+  /// copy and are ignored; they are accepted so every export method shares one
+  /// signature.
   Future<ExportResult> exportDatabaseFile({
-    ExportDestination destination = const ExportDestination.appDirectory(),
-    RawCopyStrategy strategy = RawCopyStrategy.vacuumInto,
-    bool includeWalFiles = false,
-    String? fileName,
-    bool timestampFileNames = true,
-  }) =>
-      export(
-        format: ExportFormat.rawDatabase,
-        destination: destination,
-        fileName: fileName,
-        rawStrategy: strategy,
-        includeWalFiles: includeWalFiles,
-        timestampFileNames: timestampFileNames,
-      );
-
-  /// One CSV per table. Produces multiple files — see [ExportResult.files].
-  Future<ExportResult> exportCsv({
-    ExportDestination destination = const ExportDestination.appDirectory(),
     List<String>? tables,
     List<String>? excludeTables,
     String? fileName,
     int? maxRowsPerTable,
-    String delimiter = ',',
-    bool sanitizeFormulas = true,
+    ExportDestination? destination,
     ExportProgress? onProgress,
   }) =>
       export(
-        format: ExportFormat.csv,
-        destination: destination,
+        format: ExportFormat.rawDatabase,
         tables: tables,
         excludeTables: excludeTables,
         fileName: fileName,
         maxRowsPerTable: maxRowsPerTable,
-        csvDelimiter: delimiter,
-        csvSanitizeFormulas: sanitizeFormulas,
+        destination: destination,
+        onProgress: onProgress,
+      );
+
+  /// One CSV per table. Produces multiple files — see [ExportResult.files].
+  Future<ExportResult> exportCsv({
+    List<String>? tables,
+    List<String>? excludeTables,
+    String? fileName,
+    int? maxRowsPerTable,
+    ExportDestination? destination,
+    ExportProgress? onProgress,
+  }) =>
+      export(
+        format: ExportFormat.csv,
+        tables: tables,
+        excludeTables: excludeTables,
+        fileName: fileName,
+        maxRowsPerTable: maxRowsPerTable,
+        destination: destination,
         onProgress: onProgress,
       );
 
   /// A single JSON document keyed by table name.
   Future<ExportResult> exportJson({
-    ExportDestination destination = const ExportDestination.appDirectory(),
     List<String>? tables,
     List<String>? excludeTables,
     String? fileName,
     int? maxRowsPerTable,
-    bool pretty = true,
+    ExportDestination? destination,
     ExportProgress? onProgress,
   }) =>
       export(
         format: ExportFormat.json,
-        destination: destination,
         tables: tables,
         excludeTables: excludeTables,
         fileName: fileName,
         maxRowsPerTable: maxRowsPerTable,
-        prettyJson: pretty,
+        destination: destination,
         onProgress: onProgress,
       );
 
   /// A single `.xlsx` workbook, one sheet per table.
   Future<ExportResult> exportExcel({
-    ExportDestination destination = const ExportDestination.appDirectory(),
     List<String>? tables,
     List<String>? excludeTables,
     String? fileName,
     int? maxRowsPerTable,
+    ExportDestination? destination,
     ExportProgress? onProgress,
   }) =>
       export(
         format: ExportFormat.excel,
-        destination: destination,
         tables: tables,
         excludeTables: excludeTables,
         fileName: fileName,
         maxRowsPerTable: maxRowsPerTable,
+        destination: destination,
         onProgress: onProgress,
       );
 
-  /// The general form the convenience methods delegate to.
+  /// The general form, for picking a format at runtime.
   ///
   /// [tables] restricts the export to a whitelist; [excludeTables] removes
   /// tables from whatever remains. Passing neither exports every user table.
+  /// [destination] overrides the exporter's own for this call only.
   Future<ExportResult> export({
     required ExportFormat format,
-    ExportDestination destination = const ExportDestination.appDirectory(),
     List<String>? tables,
     List<String>? excludeTables,
     String? fileName,
     int? maxRowsPerTable,
-    String csvDelimiter = ',',
-    bool csvSanitizeFormulas = true,
-    bool prettyJson = true,
-    RawCopyStrategy rawStrategy = RawCopyStrategy.vacuumInto,
-    bool includeWalFiles = false,
-    bool timestampFileNames = true,
+    ExportDestination? destination,
     ExportProgress? onProgress,
   }) async {
     final stopwatch = Stopwatch()..start();
+    final target = destination ?? this.destination;
     final staging = await Directory.systemTemp.createTemp('db_exporter_');
-    final baseName = _resolveBaseName(
-      fileName,
-      timestamped: timestampFileNames,
-    );
+    final baseName = _resolveBaseName(fileName);
 
     try {
       if (format == ExportFormat.rawDatabase) {
-        final files = await RawDatabaseExporter(
-          strategy: rawStrategy,
-          includeWalFiles: includeWalFiles,
-        ).write(
+        final files = await rawDatabase.write(
           source: source,
           stagingDirectory: staging,
           baseName: baseName,
@@ -166,7 +188,7 @@ class DbExporter {
           files: files,
           tables: const [],
           totalRows: 0,
-          destination: destination,
+          destination: target,
           stopwatch: stopwatch,
         );
       }
@@ -189,12 +211,7 @@ class DbExporter {
         data.add(read);
       }
 
-      final files = await _exporterFor(
-        format,
-        csvDelimiter: csvDelimiter,
-        csvSanitizeFormulas: csvSanitizeFormulas,
-        prettyJson: prettyJson,
-      ).write(
+      final files = await _exporterFor(format).write(
         tables: data,
         stagingDirectory: staging,
         baseName: baseName,
@@ -207,7 +224,7 @@ class DbExporter {
         files: files,
         tables: selected,
         totalRows: totalRows,
-        destination: destination,
+        destination: target,
         stopwatch: stopwatch,
       );
     } finally {
@@ -247,19 +264,10 @@ class DbExporter {
     );
   }
 
-  TabularExporter _exporterFor(
-    ExportFormat format, {
-    required String csvDelimiter,
-    required bool csvSanitizeFormulas,
-    required bool prettyJson,
-  }) =>
-      switch (format) {
-        ExportFormat.csv => CsvExporter(
-            delimiter: csvDelimiter,
-            sanitizeFormulas: csvSanitizeFormulas,
-          ),
-        ExportFormat.json => JsonExporter(pretty: prettyJson),
-        ExportFormat.excel => const ExcelExporter(),
+  TabularExporter _exporterFor(ExportFormat format) => switch (format) {
+        ExportFormat.csv => csv,
+        ExportFormat.json => json,
+        ExportFormat.excel => excel,
         ExportFormat.rawDatabase => throw StateError(
             'rawDatabase is handled by RawDatabaseExporter, not here.',
           ),
@@ -286,16 +294,16 @@ class DbExporter {
     return include.where((t) => !excluded.contains(t)).toList();
   }
 
-  /// Resolves the filename stem: explicit argument, then [defaultBaseName],
-  /// then the database filename, then a literal `export`.
-  String _resolveBaseName(String? explicit, {required bool timestamped}) {
+  /// Resolves the filename stem: call argument, then [fileName], then the
+  /// database filename, then a literal `export`.
+  String _resolveBaseName(String? explicit) {
     final stem = _stem(explicit);
-    return timestamped ? '${stem}_${FileNaming.timestamp()}' : stem;
+    return timestampFileNames ? '${stem}_${FileNaming.timestamp()}' : stem;
   }
 
   String _stem(String? explicit) {
     if (explicit != null && explicit.isNotEmpty) return explicit;
-    final fallback = defaultBaseName;
+    final fallback = fileName;
     if (fallback != null && fallback.isNotEmpty) return fallback;
     final path = source.databasePath;
     if (path == null) return 'export';
