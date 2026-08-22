@@ -16,6 +16,29 @@ shows rows, size, time and the final path.
 flutter run
 ```
 
+## Automated checks
+
+`integration_test/export_test.dart` runs every database × format ×
+destination on a real device and **reads each file back** to confirm the rows
+are in it — reopening the `.db` with sqlite3, parsing the CSV and JSON,
+unzipping the `.xlsx`. An export that throws nothing but writes an empty file
+fails here.
+
+```sh
+flutter test integration_test/export_test.dart
+```
+
+Or from the package root, which analyses, unit-tests and then runs the above
+against the first connected device:
+
+```sh
+./tool/verify.sh
+./tool/verify.sh --pull       # also copy the exported files back
+```
+
+`share()` and `saveAs()` are not covered — they open system UI and block until
+a human dismisses them. Use the app for those.
+
 ## Notes
 
 - These three cover every wiring style. `sqflite_common_ffi`,

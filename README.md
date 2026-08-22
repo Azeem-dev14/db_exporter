@@ -141,7 +141,8 @@ access, which Google Play only grants file managers and backup apps. Use
 **Not included:** encryption, redaction, and support for Hive, Isar or
 ObjectBox — those have no tables to export.
 
-See [`example/`](example/) for a runnable app exporting three databases.
+See [`example/`](example/) for a runnable app exporting three databases, and
+`./tool/verify.sh` to run every export path against a connected device.
 
 ## License
 

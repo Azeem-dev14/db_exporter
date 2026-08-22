@@ -22,6 +22,12 @@ dependencies:
   path_provider: ^2.1.4
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  # Used by integration_test/verifier.dart to unzip and inspect .xlsx output.
+  archive: ^3.6.1
   flutter_lints: ^5.0.0
 
 flutter:
