@@ -9,7 +9,7 @@ import '../demo_database.dart';
 import 'drift_support.dart';
 
 /// Drift on a native executor, holding a **Music** dataset.
-class DriftMusic implements DemoDatabase {
+class DriftMusic extends DemoDatabase {
   NoCodegenDatabase? _db;
   String? _path;
 

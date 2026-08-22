@@ -9,7 +9,7 @@ import '../demo_database.dart';
 ///
 /// The same wiring works for `sqflite_common_ffi`, `sqflite_sqlcipher`,
 /// `drift_sqflite` and `floor` — they all expose the sqflite `Database` API.
-class SqfliteSchools implements DemoDatabase {
+class SqfliteSchools extends DemoDatabase {
   Database? _db;
 
   @override
@@ -96,7 +96,4 @@ class SqfliteSchools implements DemoDatabase {
     await _db?.close();
     _db = null;
   }
-
-  @override
-  String get label => '$package — $dataset';
 }

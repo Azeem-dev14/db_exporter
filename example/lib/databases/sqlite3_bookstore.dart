@@ -10,7 +10,7 @@ import '../demo_database.dart';
 /// This is the synchronous, no-plugin path — `sqlite3_flutter_libs` supplies
 /// the native library. `sqlite_async` and `powersync` wire up the same way,
 /// with `getAll` in place of `select`.
-class Sqlite3Bookstore implements DemoDatabase {
+class Sqlite3Bookstore extends DemoDatabase {
   Database? _db;
   String? _path;
 
@@ -101,7 +101,4 @@ class Sqlite3Bookstore implements DemoDatabase {
     _db?.dispose();
     _db = null;
   }
-
-  @override
-  String get label => '$package — $dataset';
 }
