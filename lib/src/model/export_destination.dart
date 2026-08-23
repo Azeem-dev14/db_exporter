@@ -100,9 +100,11 @@ sealed class ExportDestination {
   /// Show a native save dialog and let the user pick the location.
   ///
   /// On Android this goes through the Storage Access Framework, so it writes
-  /// outside the sandbox with no storage permission at all. iOS has no
-  /// general-purpose save dialog, so this falls back to the share sheet unless
-  /// [SaveAsDestination.iosFallbackToShare] is false.
+  /// outside the sandbox with no storage permission at all. In exchange,
+  /// [ExportResult.deliveredPath] comes back as a `content://` URI rather than
+  /// a filesystem path. iOS has no general-purpose save dialog, so this falls
+  /// back to the share sheet unless [SaveAsDestination.iosFallbackToShare] is
+  /// false.
   ///
   /// Handles a single file only — CSV exports of several tables must use
   /// [ExportDestination.share] or [ExportDestination.appDirectory].

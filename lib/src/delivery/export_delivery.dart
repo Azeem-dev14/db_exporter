@@ -174,20 +174,25 @@ abstract final class ExportDelivery {
     final exported = files.single;
     try {
       final bytes = await exported.file.readAsBytes();
-      final savedPath = await FilePicker.platform.saveFile(
+      final savedUri = await FilePicker.saveFile(
         dialogTitle: destination.dialogTitle ?? 'Save export',
         fileName: exported.name,
         bytes: bytes,
+        mimeType: format.mimeType,
       );
-      if (savedPath == null) {
+      if (savedUri == null) {
         return DeliveryOutcome(files: files, cancelled: true);
       }
-      // file_picker writes the bytes itself on Android and iOS; on desktop it
-      // only returns the chosen path and leaves the writing to us.
-      if (!Platform.isAndroid && !Platform.isIOS) {
-        await File(savedPath).writeAsBytes(bytes, flush: true);
-      }
-      return DeliveryOutcome(files: files, path: savedPath);
+      // file_picker writes the bytes on every platform now that they are a
+      // required argument, so there is nothing left for us to write. The Uri
+      // it reports is a `file:` on iOS but a `content:` on Android's Storage
+      // Access Framework, which has no filesystem path to hand back.
+      return DeliveryOutcome(
+        files: files,
+        path: savedUri.isScheme('file')
+            ? savedUri.toFilePath()
+            : savedUri.toString(),
+      );
     } on Object catch (error, stackTrace) {
       if (Platform.isIOS && destination.iosFallbackToShare) {
         // iOS has no general-purpose save dialog; the share sheet's "Save to

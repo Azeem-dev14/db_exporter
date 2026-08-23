@@ -55,9 +55,14 @@ class ExportResult {
   final int totalRows;
   final Duration duration;
 
-  /// Where the file finally landed, when the destination reports a path.
+  /// Where the file finally landed, when the destination reports a location.
   ///
   /// Null for the share sheet, which does not tell us what the user picked.
+  ///
+  /// Usually a filesystem path, but [ExportDestination.saveAs] on Android
+  /// reports a Storage Access Framework `content://` URI, which names a
+  /// document the app has no filesystem access to. Check the scheme before
+  /// passing this to [File].
   final String? deliveredPath;
 
   /// True when the user dismissed a save-as dialog without choosing.

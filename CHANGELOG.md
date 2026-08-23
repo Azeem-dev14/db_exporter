@@ -1,3 +1,23 @@
+## 0.2.0
+
+### Changed
+
+- Raised the floors on `file_picker` (^12.0.0), `share_plus` (^13.3.0) and
+  `package_info_plus` (^10.2.1) so the package resolves against the current
+  releases rather than holding consumers back a major version.
+- **Breaking, Android only.** `ExportDestination.saveAs()` now reports the
+  Storage Access Framework `content://` URI that `file_picker` 12 returns,
+  where it previously reported a filesystem path. `ExportResult.path` is still
+  a `String`, but on Android it is no longer openable with `File(path)` —
+  hand it to a content resolver instead. iOS still reports a `file:` path.
+  Every other destination is unaffected.
+- The save dialog now receives the export's MIME type, so Android files apps
+  suggest the right handler for a `.db`, `.csv`, `.json` or `.xlsx`.
+
+### Fixed
+
+- Shortened the package description to fit pub.dev's 180-character limit.
+
 ## 0.1.0
 
 Initial release. Android and iOS.
